@@ -1,15 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
-import { ArrowRight, CircleStop, Headphones, Mic2, RotateCcw, Send } from "lucide-react";
-import { TARGETS } from "@/lib/targets";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, CircleStop, Headphones, LogOut, Mic2, RotateCcw, Send, Volume2 } from "lucide-react";
+import { TARGETS, TARGET_SECTIONS } from "@/lib/targets";
 
 type Verdict = "correct" | "incorrect" | "unsure";
 type Quality = "good" | "noisy" | "too_short" | "silence" | "unclear";
 
 export default function LabPage() {
+  const router = useRouter();
   const [participantCode, setParticipantCode] = useState("");
+  const [section, setSection] = useState(TARGET_SECTIONS[0]);
+  const sectionTargets = useMemo(() => TARGETS.filter((item) => item.section === section), [section]);
   const [targetKey, setTargetKey] = useState(TARGETS[0].key);
   const [recording, setRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -25,24 +28,30 @@ export default function LabPage() {
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    const code = sessionStorage.getItem("himma_lab_participant_code");
+    if (!code) {
+      router.replace("/");
+      return;
+    }
+    setParticipantCode(code);
+  }, [router]);
+
+  useEffect(() => {
+    if (!sectionTargets.some((item) => item.key === targetKey) && sectionTargets[0]) {
+      setTargetKey(sectionTargets[0].key);
+    }
+  }, [sectionTargets, targetKey]);
+
   const target = useMemo(() => TARGETS.find((item) => item.key === targetKey) ?? TARGETS[0], [targetKey]);
+  const targetIndex = sectionTargets.findIndex((item) => item.key === target.key);
 
   const resetSample = () => {
     if (audioUrl) URL.revokeObjectURL(audioUrl);
-    setAudioBlob(null);
-    setAudioUrl(null);
-    setDurationMs(0);
-    setVerdict(null);
-    setObservedText("");
-    setQuality("good");
-    setNotes("");
-    setStatus(null);
+    setAudioBlob(null); setAudioUrl(null); setDurationMs(0); setVerdict(null); setObservedText(""); setQuality("good"); setNotes(""); setStatus(null);
   };
 
-  const chooseTarget = (key: string) => {
-    setTargetKey(key);
-    resetSample();
-  };
+  const chooseTarget = (key: string) => { setTargetKey(key); resetSample(); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   const startRecording = async () => {
     setStatus(null);
@@ -58,129 +67,105 @@ export default function LabPage() {
         stream.getTracks().forEach((track) => track.stop());
         const elapsed = startedAtRef.current ? Date.now() - startedAtRef.current : 0;
         if (audioUrl) URL.revokeObjectURL(audioUrl);
-        setAudioBlob(blob);
-        setAudioUrl(URL.createObjectURL(blob));
-        setDurationMs(elapsed);
-        setRecording(false);
+        setAudioBlob(blob); setAudioUrl(URL.createObjectURL(blob)); setDurationMs(elapsed); setRecording(false);
       };
-      recorderRef.current = recorder;
-      startedAtRef.current = Date.now();
-      recorder.start(200);
-      setRecording(true);
-      setStatus({ kind: "info", text: "التسجيل جارٍ الآن. انطق الهدف مرة واحدة بوضوح ثم أوقف التسجيل." });
+      recorderRef.current = recorder; startedAtRef.current = Date.now(); recorder.start(200); setRecording(true);
+      setStatus({ kind: "info", text: "التسجيل جارٍ الآن. اقرأ المطلوب بصوت واضح، ثم اضغط إيقاف." });
     } catch {
-      setStatus({ kind: "error", text: "تعذر الوصول إلى الميكروفون. اسمح للموقع باستخدامه ثم حاول مرة أخرى." });
+      setStatus({ kind: "error", text: "تعذر فتح الميكروفون. اسمح للموقع باستخدام الميكروفون ثم حاول مرة أخرى." });
     }
   };
 
-  const stopRecording = () => {
-    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
-  };
+  const stopRecording = () => { if (recorderRef.current?.state === "recording") recorderRef.current.stop(); };
 
   const submitSample = async () => {
-    if (!participantCode.trim()) return setStatus({ kind: "error", text: "أدخل كود المشارك أولًا." });
-    if (!audioBlob) return setStatus({ kind: "error", text: "سجّل عينة صوتية قبل الإرسال." });
+    if (!participantCode) return router.replace("/");
+    if (!audioBlob) return setStatus({ kind: "error", text: "سجّل القراءة أولًا." });
     if (!verdict) return setStatus({ kind: "error", text: "حدد هل النطق صحيح أو خطأ أو غير متأكد." });
-    if (verdict === "incorrect" && !observedText.trim()) return setStatus({ kind: "error", text: "عند اختيار خطأ، حدد ما الذي سمعته أو اكتب النطق المسموع." });
-
-    setSubmitting(true);
-    setStatus({ kind: "info", text: "جاري حفظ التسجيل والوسم وتحليل Azure إن كان مهيأ..." });
+    if (verdict === "incorrect" && !observedText.trim()) return setStatus({ kind: "error", text: "حدد ما الذي نطقته أو ما الذي سمعته." });
+    setSubmitting(true); setStatus({ kind: "info", text: "جاري حفظ التسجيل والنتيجة..." });
     try {
       const form = new FormData();
       form.append("audio", audioBlob, `sample-${Date.now()}.webm`);
-      form.append("participantCode", participantCode.trim().toUpperCase());
+      form.append("participantCode", participantCode);
       form.append("targetKey", target.key);
       form.append("verdict", verdict);
       form.append("observedText", observedText.trim());
       form.append("quality", quality);
       form.append("notes", notes.trim());
       form.append("durationMs", String(durationMs));
-
       const response = await fetch("/api/recordings", { method: "POST", body: form });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.detail || "تعذر حفظ العينة");
-      setStatus({ kind: "success", text: payload?.azureConfigured ? "تم حفظ العينة ونتيجة Azure. يمكنك الانتقال للعينة التالية." : "تم حفظ العينة والوسم. Azure غير مهيأ حاليًا، ويمكن تحليلها لاحقًا." });
+      const next = sectionTargets[targetIndex + 1];
       resetSample();
-      setStatus({ kind: "success", text: payload?.azureConfigured ? "تم حفظ العينة ونتيجة Azure بنجاح." : "تم حفظ العينة. Azure غير مهيأ بعد." });
+      setStatus({ kind: "success", text: "تم حفظ التسجيل بنجاح." });
+      if (next) setTimeout(() => chooseTarget(next.key), 600);
     } catch (error) {
       setStatus({ kind: "error", text: error instanceof Error ? error.message : "تعذر حفظ العينة" });
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
+  const logout = () => { sessionStorage.removeItem("himma_lab_participant_code"); router.replace("/"); };
+
+  if (!participantCode) return <main className="entry-shell"><div className="entry-card"><p>جاري التحقق من جلسة المشاركة...</p></div></main>;
+
   return (
-    <main className="shell">
-      <div className="container lab-wrap">
-        <header className="topbar">
-          <Link className="brand" href="/"><span className="brand-mark"><Mic2 size={21} /></span><span>جلسة جمع البيانات</span></Link>
-          <Link className="btn btn-secondary" href="/"><ArrowRight size={17} /> الرئيسية</Link>
-        </header>
-
-        <div className="lab-grid">
-          <aside className="card">
-            <h2 className="panel-title">بيانات الجلسة</h2>
-            <label className="label" htmlFor="participant-code">كود المشارك</label>
-            <input id="participant-code" className="input" value={participantCode} onChange={(event) => setParticipantCode(event.target.value)} placeholder="مثال: H001" autoCapitalize="characters" />
-            <p className="muted" style={{ fontSize: 13 }}>نستخدم رمزًا مجهولًا بدل الاسم. يجب أن يكون الكود مفعّلًا من المشرف.</p>
-
-            <h3 style={{ marginTop: 26 }}>أهداف الجلسة</h3>
-            <div className="target-list">
-              {TARGETS.map((item) => (
-                <button type="button" key={item.key} className={`target-button ${item.key === target.key ? "active" : ""}`} onClick={() => chooseTarget(item.key)} disabled={recording}>
-                  <span>{item.label}</span><strong style={{ fontSize: 24 }}>{item.text}</strong>
-                </button>
-              ))}
-            </div>
-          </aside>
-
-          <section className="card">
-            <p className="eyebrow">الهدف الحالي · {target.type === "letter_with_haraka" ? "حرف وحركة" : "كلمة"}</p>
-            <div className="target-big"><div><strong>{target.text}</strong><p className="muted">انطق الهدف كما هو مكتوب دون إضافة كلمات.</p></div></div>
-
-            <div className="record-controls">
-              {!recording ? <button type="button" className="btn btn-primary" onClick={() => void startRecording()}><Mic2 size={18} /> بدء التسجيل</button> : <button type="button" className="btn btn-danger" onClick={stopRecording}><CircleStop size={18} /> إيقاف التسجيل</button>}
-              {audioBlob && !recording && <button type="button" className="btn btn-secondary" onClick={resetSample}><RotateCcw size={17} /> إعادة التسجيل</button>}
-            </div>
-
-            {audioUrl && <div><p className="label"><Headphones size={16} style={{ verticalAlign: "middle", marginLeft: 6 }} />استمع قبل الحكم</p><audio controls src={audioUrl} preload="metadata" /><p className="muted" style={{ fontSize: 13 }}>مدة تقريبية: {(durationMs / 1000).toFixed(1)} ثانية</p></div>}
-
-            {audioBlob && !recording && (
-              <div style={{ marginTop: 24 }}>
-                <h2>الوسم البشري</h2>
-                <p className="muted">هذا الحكم أهم من نتيجة Azure في مرحلة بناء Dataset. اختر ما سمعته فعلًا، وليس ما كان يفترض أن تقوله.</p>
-                <div className="annotation-grid">
-                  <button type="button" className={`choice ${verdict === "correct" ? "active" : ""}`} onClick={() => { setVerdict("correct"); setObservedText(target.text); }}>النطق صحيح</button>
-                  <button type="button" className={`choice ${verdict === "incorrect" ? "active" : ""}`} onClick={() => { setVerdict("incorrect"); setObservedText(""); }}>النطق خطأ</button>
-                  <button type="button" className={`choice ${verdict === "unsure" ? "active" : ""}`} onClick={() => { setVerdict("unsure"); setObservedText(""); }}>غير متأكد</button>
-                </div>
-
-                {verdict === "incorrect" && (
-                  <div style={{ marginTop: 18 }}>
-                    <label className="label">ما الذي سمعته؟</label>
-                    <div className="contrasts">
-                      {target.contrasts.map((contrast) => <button type="button" key={contrast} className={`contrast ${observedText === contrast ? "active" : ""}`} onClick={() => setObservedText(contrast)}>{contrast}</button>)}
-                    </div>
-                    <label className="label" htmlFor="observed-text">أو اكتب النطق المسموع</label>
-                    <input id="observed-text" className="input" value={observedText} onChange={(event) => setObservedText(event.target.value)} placeholder="مثال: بِ أو حرف مختلف" />
-                  </div>
-                )}
-
-                <label className="label" htmlFor="quality">جودة التسجيل من وجهة نظرك</label>
-                <select id="quality" className="select" value={quality} onChange={(event) => setQuality(event.target.value as Quality)}>
-                  <option value="good">جيد وواضح</option><option value="noisy">فيه ضوضاء</option><option value="too_short">قصير جدًا</option><option value="silence">صمت / لم أنطق</option><option value="unclear">غير واضح</option>
-                </select>
-
-                <label className="label" htmlFor="notes">ملاحظة اختيارية</label>
-                <textarea id="notes" className="textarea" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="أي ملاحظة تساعد المراجع لاحقًا" />
-
-                <div className="actions"><button type="button" className="btn btn-teal" onClick={() => void submitSample()} disabled={submitting}><Send size={17} /> {submitting ? "جاري الحفظ..." : "حفظ العينة"}</button></div>
-              </div>
-            )}
-
-            {status && <div className={`status status-${status.kind}`} style={{ marginTop: 18 }}>{status.text}</div>}
-          </section>
+    <main className="lab-shell">
+      <header className="lab-header">
+        <div className="lab-header-inner">
+          <img src="/himma-logo.svg" alt="هِمّة" className="lab-logo" />
+          <div className="session-chip"><span>{participantCode}</span><button type="button" onClick={logout} aria-label="خروج"><LogOut size={17} /></button></div>
         </div>
+      </header>
+
+      <div className="lab-mobile-container">
+        <section className="progress-row">
+          <div><span>{section}</span><strong>{targetIndex + 1} من {sectionTargets.length}</strong></div>
+          <div className="progress-track"><span style={{ width: `${((targetIndex + 1) / Math.max(sectionTargets.length, 1)) * 100}%` }} /></div>
+        </section>
+
+        <section className="section-picker-card">
+          <label htmlFor="section">مجموعة الاختبار</label>
+          <select id="section" value={section} onChange={(event) => { setSection(event.target.value); resetSample(); }}>
+            {TARGET_SECTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+          <div className="target-scroll" aria-label="عناصر المجموعة">
+            {sectionTargets.map((item, index) => <button type="button" key={item.key} className={item.key === target.key ? "active" : ""} onClick={() => chooseTarget(item.key)} disabled={recording}>{index + 1}</button>)}
+          </div>
+        </section>
+
+        <section className="reading-card">
+          <span className="task-label"><Volume2 size={17} /> {target.label}</span>
+          <p className="instruction">{target.instruction}</p>
+          <div className={`reading-target reading-target-${target.type}`}>{target.text}</div>
+
+          {!audioBlob && !recording && <button type="button" className="record-main" onClick={() => void startRecording()}><span><Mic2 size={29} /></span>ابدأ التسجيل</button>}
+          {recording && <button type="button" className="record-main recording" onClick={stopRecording}><span><CircleStop size={29} /></span>إيقاف التسجيل</button>}
+
+          {status && <div className={`status status-${status.kind}`}>{status.text}</div>}
+
+          {audioUrl && !recording && <div className="review-audio"><div className="review-audio-title"><Headphones size={18} /><strong>استمع لتسجيلك</strong><span>{(durationMs / 1000).toFixed(1)} ث</span></div><audio controls src={audioUrl} preload="metadata" /><button type="button" className="retry-link" onClick={resetSample}><RotateCcw size={16} /> إعادة التسجيل</button></div>}
+        </section>
+
+        {audioBlob && !recording && <section className="annotation-card">
+          <div className="annotation-heading"><CheckCircle2 size={22} /><div><h2>كيف كان النطق؟</h2><p>اختر ما حدث فعلًا. هذا يساعدنا على بناء بيانات دقيقة.</p></div></div>
+          <div className="verdict-options">
+            <button type="button" className={verdict === "correct" ? "active good" : ""} onClick={() => { setVerdict("correct"); setObservedText(target.text); }}>نطقتُه بشكل صحيح</button>
+            <button type="button" className={verdict === "incorrect" ? "active bad" : ""} onClick={() => { setVerdict("incorrect"); setObservedText(""); }}>كان هناك خطأ</button>
+            <button type="button" className={verdict === "unsure" ? "active unsure" : ""} onClick={() => { setVerdict("unsure"); setObservedText(""); }}>غير متأكد</button>
+          </div>
+
+          {verdict === "incorrect" && <div className="observed-box">
+            <label>ماذا نطقت أو ماذا سمعت؟</label>
+            {target.contrasts.length > 0 && <div className="contrast-grid">{target.contrasts.map((contrast) => <button type="button" key={contrast} className={observedText === contrast ? "active" : ""} onClick={() => setObservedText(contrast)}>{contrast}</button>)}</div>}
+            <input value={observedText} onChange={(event) => setObservedText(event.target.value)} placeholder="اكتب النطق الذي حدث" />
+          </div>}
+
+          <details className="optional-details"><summary>معلومات إضافية اختيارية</summary><label>جودة التسجيل<select value={quality} onChange={(event) => setQuality(event.target.value as Quality)}><option value="good">واضح</option><option value="noisy">فيه ضوضاء</option><option value="too_short">قصير جدًا</option><option value="silence">صمت</option><option value="unclear">غير واضح</option></select></label><label>ملاحظة<textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="ملاحظة للمراجع" /></label></details>
+
+          <button type="button" className="primary-action" onClick={() => void submitSample()} disabled={submitting || !verdict}><Send size={18} /> {submitting ? "جاري الحفظ..." : "حفظ والانتقال للتالي"}</button>
+        </section>}
       </div>
     </main>
   );
