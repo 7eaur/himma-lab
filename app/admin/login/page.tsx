@@ -36,7 +36,7 @@ export default function AdminLoginPage() {
         <div className="entry-copy supervisor-copy">
           <span className="soft-badge"><LockKeyhole size={16} /> لوحة المشرف</span>
           <h1>دخول مشرف المختبر</h1>
-          <p>أدخل رمز الإدارة للوصول إلى بيانات التسجيلات والمراجعات وإنشاء أكواد المشاركين.</p>
+          <p>أدخل رمز الإدارة للوصول إلى التسجيلات والمراجعات وإدارة أكواد المشاركين.</p>
         </div>
         <form onSubmit={submit} className="code-form">
           <label htmlFor="admin-token">رمز دخول المشرف</label>
@@ -44,7 +44,6 @@ export default function AdminLoginPage() {
           {error && <div className="status status-error">{error}</div>}
           <button className="primary-action" type="submit" disabled={loading || !token}>{loading ? "جاري التحقق..." : <>دخول اللوحة <ArrowLeft size={19} /></>}</button>
         </form>
-        <p className="privacy-note">بيانات التسجيل محفوظة في مساحة خاصة ولا تظهر للمشاركين.</p>
       </div>
     </main>
   );
