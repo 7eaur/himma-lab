@@ -14,7 +14,8 @@
 html { background: var(--himma-soft); }
 body { background: var(--himma-soft); color: var(--himma-navy); }
 .entry-shell, .lab-shell { font-family: var(--font-tajawal), Tajawal, "Noto Sans Arabic", sans-serif; }
-.admin-shell, .admin-shell button, .admin-shell input, .admin-shell select, .admin-shell textarea {
+.admin-shell, .admin-shell button, .admin-shell input, .admin-shell select, .admin-shell textarea,
+.supervisor-entry-shell, .supervisor-entry-shell button, .supervisor-entry-shell input {
   font-family: var(--font-ibm-plex-arabic), "IBM Plex Sans Arabic", "Noto Sans Arabic", sans-serif;
 }
 
@@ -68,6 +69,35 @@ body { background: var(--himma-soft); color: var(--himma-navy); }
 .reading-target-passage,
 .reading-target-timed_words { background: #fbfdff; }
 
+/* Readable content navigation replaces anonymous number chips. */
+.content-navigator-card { display: grid; gap: 14px; }
+.content-navigator-grid { display: grid; grid-template-columns: minmax(180px,.72fr) minmax(0,1.5fr); gap: 12px; }
+.content-select-field { display: grid; gap: 7px; min-width: 0; }
+.content-select-field > span { font-size: 14px; font-weight: 700; color: var(--himma-navy); }
+.content-select-field select {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid var(--himma-line);
+  border-radius: 14px;
+  background: var(--himma-white);
+  color: var(--himma-navy);
+  padding: 0 13px;
+  font: inherit;
+  font-weight: 500;
+}
+.content-select-field select:hover { border-color: #b7cfe4; }
+.content-select-field select:disabled { background: #f3f7fa; color: #8798a8; cursor: not-allowed; }
+.content-current-preview {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 13px;
+  background: #f4f9fd;
+  color: var(--himma-muted);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.content-current-preview strong { color: var(--himma-navy); }
+
 /* One clear action and comfortable touch targets */
 button, .btn, .primary-action, .record-main, .contrast, .choice { min-height: 44px; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
@@ -100,12 +130,18 @@ tr:last-child td { border-bottom: 0; }
 .participant-code-row .input { min-width: 0; }
 .participant-generate-button { white-space: nowrap; }
 .participant-create-message { margin-bottom: 0; }
+.supervisor-login-card { max-width: 560px; }
+.supervisor-copy p { max-width: 42ch; margin-inline: auto; }
 
 /* Calibration status uses Himma yellow as a limited attention accent. */
 .calibration-warning, .calibration-note { border-color: #f1d48d; background: #fffaf0; }
 .calibration-warning svg, .calibration-note svg { color: #d69b16; }
 
 /* Mobile-first polish */
+@media (max-width: 760px) {
+  .content-navigator-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 600px) {
   .entry-shell { padding: 16px 12px; }
   .entry-card { padding: 24px 18px; border-radius: 24px; }
@@ -114,10 +150,15 @@ tr:last-child td { border-bottom: 0; }
   .lab-logo { width: 105px; }
   .lab-mobile-container { width: calc(100% - 18px); padding-top: 12px; }
   .section-picker-card, .reading-card, .annotation-card, .analysis-result-card { border-radius: 20px; padding: 17px 14px; }
+  .content-navigator-card { gap: 11px; }
+  .content-select-field select { min-height: 52px; border-radius: 13px; font-size: 15px; }
+  .content-current-preview { font-size: 14px; max-height: 96px; overflow: auto; }
   .reading-target-letter, .reading-target-letter_with_haraka, .reading-target-syllable { font-size: clamp(62px, 23vw, 92px); }
   .reading-target-word { font-size: clamp(42px, 15vw, 66px); }
   .reading-target-passage, .reading-target-timed_words { font-size: 20px; line-height: 2; padding: 14px; }
   .record-main { width: 100%; min-width: 0; }
+  .review-audio audio { width: 100%; }
+  .verdict-options { grid-template-columns: 1fr; }
   .admin-shell .container { width: calc(100% - 20px); }
   .admin-hero { padding-top: 22px; }
   .admin-hero h1 { font-size: 34px; }
