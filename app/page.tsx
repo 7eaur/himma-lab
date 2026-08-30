@@ -1,45 +1,61 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AudioLines, BarChart3, Database, Mic2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, KeyRound, ShieldCheck } from "lucide-react";
 
 export default function HomePage() {
+  const router = useRouter();
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const normalized = code.trim().toUpperCase();
+      const response = await fetch("/api/participants/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: normalized }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.detail || "تعذر التحقق من الكود.");
+      sessionStorage.setItem("himma_lab_participant_code", payload.code);
+      router.push("/lab");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "تعذر التحقق من الكود.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <main className="shell">
-      <div className="container">
-        <header className="topbar">
-          <div className="brand"><span className="brand-mark"><AudioLines size={22} /></span><span>مختبر هِمّة للمعايرة</span></div>
-          <nav className="nav-links" aria-label="التنقل الرئيسي">
-            <Link className="nav-link" href="/lab">بدء التسجيل</Link>
-            <Link className="nav-link" href="/admin">لوحة البيانات</Link>
-          </nav>
-        </header>
+    <main className="entry-shell">
+      <div className="entry-card">
+        <div className="entry-brand">
+          <img src="/himma-logo.svg" alt="هِمّة" className="himma-logo" />
+          <p>أتعلم، أتطور، أصل إلى القمة</p>
+        </div>
 
-        <section className="hero">
-          <div>
-            <p className="eyebrow">HIMMA CALIBRATION LAB</p>
-            <h1>نجمع الدليل الصوتي قبل أن نحكم على النطق.</h1>
-            <p className="lead">مختبر مستقل لتسجيل أهداف عربية معروفة مسبقًا، حفظ نتيجة Azure كدليل تقني، ثم إضافة الحكم البشري الذي يصبح أساس Dataset المعايرة.</p>
-            <div className="actions">
-              <Link className="btn btn-primary" href="/lab"><Mic2 size={19} /> ابدأ جلسة تسجيل</Link>
-              <Link className="btn btn-secondary" href="/admin"><BarChart3 size={19} /> لوحة المشرف</Link>
-            </div>
-          </div>
-          <div className="card hero-card">
-            <div>
-              <span className="badge">مثال هدف معايرة</span>
-              <div className="target-sample">بَ</div>
-            </div>
-            <div>
-              <p className="muted">المطلوب ليس فقط «صحيح/خطأ». عند الخطأ نسجل ما سُمِع فعليًا مثل بِ أو بُ أو بْ، ثم نقارن الحكم البشري بنتيجة المزوّد.</p>
-              <div className="contrasts"><span className="contrast">بِ</span><span className="contrast">بُ</span><span className="contrast">بْ</span></div>
-            </div>
-          </div>
-        </section>
+        <div className="entry-copy">
+          <span className="soft-badge"><ShieldCheck size={16} /> مختبر القراءة والنطق</span>
+          <h1>مرحبًا بك في مختبر هِمّة</h1>
+          <p>أدخل كود المشاركة الذي حصلت عليه، ثم ستبدأ جلسة قراءة قصيرة وواضحة خطوة بخطوة.</p>
+        </div>
 
-        <section className="feature-grid" aria-label="خصائص المختبر">
-          <article className="feature"><Mic2 size={25} color="var(--teal-dark)" /><h3>تسجيل من المتصفح</h3><p>المشارك يسجل من الهاتف أو الكمبيوتر، يستمع لتسجيله، ثم يرسله دون أدوات إضافية.</p></article>
-          <article className="feature"><Database size={25} color="var(--teal-dark)" /><h3>Dataset منفصلة</h3><p>التسجيلات والوسوم ونتائج Azure تبقى بعيدة عن قاعدة منصة هِمّة الإنتاجية.</p></article>
-          <article className="feature"><ShieldCheck size={25} color="var(--teal-dark)" /><h3>Ground Truth بشري</h3><p>لا تتحول ثقة Azure إلى درجة. الحكم البشري والاتفاق بين المراجعين هما أساس المعايرة.</p></article>
-        </section>
+        <form onSubmit={submit} className="code-form">
+          <label htmlFor="participant-code">كود المشاركة</label>
+          <div className="code-input-wrap"><KeyRound size={20} /><input id="participant-code" value={code} onChange={(event) => setCode(event.target.value)} placeholder="مثال: H001" autoComplete="one-time-code" autoCapitalize="characters" maxLength={20} autoFocus /></div>
+          {error && <div className="status status-error">{error}</div>}
+          <button className="primary-action" type="submit" disabled={loading || !code.trim()}>{loading ? "جاري التحقق..." : <>دخول المختبر <ArrowLeft size={19} /></>}</button>
+        </form>
+
+        <p className="privacy-note">لا نطلب اسمك. التسجيلات تُستخدم في اختبار وتحسين دقة تحليل القراءة فقط.</p>
+        <Link className="admin-entry" href="/admin/login">دخول المشرف</Link>
       </div>
     </main>
   );
