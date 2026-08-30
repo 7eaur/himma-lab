@@ -9,10 +9,13 @@ const allowedQuality = new Set(["good", "noisy", "too_short", "silence", "unclea
 
 export const runtime = "nodejs";
 
-function optionalFiniteNumber(value: FormDataEntryValue | null) {
+function optionalFiniteNumber(value: FormDataEntryValue | null, min?: number, max?: number) {
   if (value == null || value === "") return null;
   const number = Number(value);
-  return Number.isFinite(number) ? number : null;
+  if (!Number.isFinite(number)) return null;
+  if (min != null && number < min) return null;
+  if (max != null && number > max) return null;
+  return number;
 }
 
 export async function POST(request: Request) {
@@ -27,11 +30,11 @@ export async function POST(request: Request) {
   const observedText = String(form.get("observedText") || "").trim();
   const quality = String(form.get("quality") || "good").trim();
   const notes = String(form.get("notes") || "").trim();
-  const durationMs = optionalFiniteNumber(form.get("durationMs"));
-  const decodedDurationMs = optionalFiniteNumber(form.get("decodedDurationMs"));
-  const rms = optionalFiniteNumber(form.get("rms"));
-  const peak = optionalFiniteNumber(form.get("peak"));
-  const silenceRatio = optionalFiniteNumber(form.get("silenceRatio"));
+  const durationMs = optionalFiniteNumber(form.get("durationMs"), 0);
+  const decodedDurationMs = optionalFiniteNumber(form.get("decodedDurationMs"), 0);
+  const rms = optionalFiniteNumber(form.get("rms"), 0, 1);
+  const peak = optionalFiniteNumber(form.get("peak"), 0, 1);
+  const silenceRatio = optionalFiniteNumber(form.get("silenceRatio"), 0, 1);
   const target = findTarget(targetKey);
 
   if (!(audio instanceof Blob) || audio.size < 800) return NextResponse.json({ detail: "التسجيل فارغ أو غير صالح." }, { status: 422 });
@@ -74,8 +77,8 @@ export async function POST(request: Request) {
       storage_path: storagePath,
       mime_type: audio.type || "application/octet-stream",
       byte_size: audio.size,
-      client_duration_ms: durationMs == null ? null : Math.max(0, Math.round(durationMs)),
-      client_decoded_duration_ms: decodedDurationMs == null ? null : Math.max(0, Math.round(decodedDurationMs)),
+      client_duration_ms: durationMs == null ? null : Math.round(durationMs),
+      client_decoded_duration_ms: decodedDurationMs == null ? null : Math.round(decodedDurationMs),
       client_rms: rms,
       client_peak: peak,
       client_silence_ratio: silenceRatio,
@@ -129,6 +132,7 @@ export async function POST(request: Request) {
       wer: reading.wer,
       lexicalAccuracy: reading.lexicalAccuracy,
       calibrationState: "not_calibrated",
+      qualityEvidence: { decodedDurationMs, rms, peak, silenceRatio },
     },
   }, { status: 201 });
 }
