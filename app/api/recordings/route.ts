@@ -3,9 +3,16 @@ import { findTarget } from "@/lib/targets";
 import { getSupabaseAdmin, RECORDINGS_BUCKET } from "@/lib/supabase";
 import { transcribeAzure } from "@/lib/azure";
 import { analyzeReading, compareHumanPronunciation } from "@/lib/analysis";
+import {
+  CONFIDENCES,
+  ERROR_CATEGORIES,
+  UNSURE_REASONS,
+  VALIDITIES,
+  sanitizeUnitAnnotations,
+  unitAnnotationErrorTypes,
+} from "@/lib/calibration";
 
 const allowedVerdicts = new Set(["correct", "incorrect", "unsure"]);
-const allowedQuality = new Set(["good", "noisy", "too_short", "silence", "unclear"]);
 
 export const runtime = "nodejs";
 
@@ -18,6 +25,10 @@ function optionalFiniteNumber(value: FormDataEntryValue | null, min?: number, ma
   return number;
 }
 
+function parseJson(value: FormDataEntryValue | null) {
+  try { return JSON.parse(String(value || "[]")); } catch { return []; }
+}
+
 export async function POST(request: Request) {
   const supabase = getSupabaseAdmin();
   if (!supabase) return NextResponse.json({ detail: "قاعدة المختبر غير مهيأة على الخادم." }, { status: 503 });
@@ -28,8 +39,12 @@ export async function POST(request: Request) {
   const targetKey = String(form.get("targetKey") || "").trim();
   const verdict = String(form.get("verdict") || "").trim();
   const observedText = String(form.get("observedText") || "").trim();
-  const quality = String(form.get("quality") || "good").trim();
+  const validity = String(form.get("validity") || "valid").trim();
+  const confidence = String(form.get("confidence") || "medium").trim();
+  const errorCategory = String(form.get("errorCategory") || "").trim();
+  const unsureReason = String(form.get("unsureReason") || "").trim();
   const notes = String(form.get("notes") || "").trim();
+  const unitAnnotations = sanitizeUnitAnnotations(parseJson(form.get("unitAnnotations")));
   const durationMs = optionalFiniteNumber(form.get("durationMs"), 0);
   const decodedDurationMs = optionalFiniteNumber(form.get("decodedDurationMs"), 0);
   const rms = optionalFiniteNumber(form.get("rms"), 0, 1);
@@ -41,12 +56,16 @@ export async function POST(request: Request) {
   if (!participantCode) return NextResponse.json({ detail: "كود المشارك مطلوب." }, { status: 422 });
   if (!target) return NextResponse.json({ detail: "هدف المعايرة غير معروف." }, { status: 422 });
   if (!allowedVerdicts.has(verdict)) return NextResponse.json({ detail: "وسم النطق غير صالح." }, { status: 422 });
-  if (!allowedQuality.has(quality)) return NextResponse.json({ detail: "وسم جودة التسجيل غير صالح." }, { status: 422 });
-  if (verdict === "incorrect" && !observedText) return NextResponse.json({ detail: "حدد ما الذي سُمِع عند وسم العينة كخطأ." }, { status: 422 });
+  if (!VALIDITIES.includes(validity as (typeof VALIDITIES)[number])) return NextResponse.json({ detail: "حالة صلاحية التسجيل غير صالحة." }, { status: 422 });
+  if (!CONFIDENCES.includes(confidence as (typeof CONFIDENCES)[number])) return NextResponse.json({ detail: "ثقة الوسم غير صالحة." }, { status: 422 });
+  if (errorCategory && !ERROR_CATEGORIES.includes(errorCategory as (typeof ERROR_CATEGORIES)[number])) return NextResponse.json({ detail: "فئة الخطأ غير صالحة." }, { status: 422 });
+  if (unsureReason && !UNSURE_REASONS.includes(unsureReason as (typeof UNSURE_REASONS)[number])) return NextResponse.json({ detail: "سبب عدم التأكد غير صالح." }, { status: 422 });
+  if (verdict === "incorrect" && (!observedText || !errorCategory)) return NextResponse.json({ detail: "عند اختيار خطأ، حدد نوع الخطأ وما الذي سُمِع." }, { status: 422 });
+  if (verdict === "unsure" && !unsureReason) return NextResponse.json({ detail: "حدد سبب عدم التأكد." }, { status: 422 });
 
   const { data: participant, error: participantError } = await supabase
     .from("calibration_participants")
-    .select("id,code,is_active")
+    .select("id,code,is_active,dataset_split")
     .eq("code", participantCode)
     .maybeSingle();
 
@@ -65,6 +84,8 @@ export async function POST(request: Request) {
   const azure = await transcribeAzure(audio, target.text);
   const reading = analyzeReading(target.text, azure.transcript);
   const human = observedText ? compareHumanPronunciation(target.text, observedText) : { observedUnits: [], errorTypes: [] };
+  const humanErrorTypes = Array.from(new Set([...human.errorTypes, ...unitAnnotationErrorTypes(unitAnnotations)]));
+  const quality = validity === "valid" ? "good" : validity;
 
   const { data: sample, error: sampleError } = await supabase
     .from("calibration_samples")
@@ -85,7 +106,13 @@ export async function POST(request: Request) {
       self_verdict: verdict,
       self_observed_text: observedText || null,
       self_quality: quality,
+      self_validity: validity,
+      self_confidence: confidence,
+      self_error_category: errorCategory || null,
+      self_unsure_reason: unsureReason || null,
+      self_unit_annotations: unitAnnotations,
       self_notes: notes || null,
+      dataset_split: participant.dataset_split || "unassigned",
       asr_provider: azure.configured ? azure.provider : null,
       asr_locale: azure.configured ? azure.locale : null,
       asr_transcript: azure.transcript,
@@ -105,9 +132,9 @@ export async function POST(request: Request) {
       lexical_accuracy: reading.lexicalAccuracy,
       pronunciation_reference: reading.pronunciationReference,
       human_observed_units: human.observedUnits,
-      human_error_types: human.errorTypes,
+      human_error_types: humanErrorTypes,
       calibration_state: "not_calibrated",
-      analysis_version: "reference-guided-v1",
+      analysis_version: "reference-guided-v2",
       academic_effect: "none",
     })
     .select("id")
@@ -133,6 +160,7 @@ export async function POST(request: Request) {
       lexicalAccuracy: reading.lexicalAccuracy,
       calibrationState: "not_calibrated",
       qualityEvidence: { decodedDurationMs, rms, peak, silenceRatio },
+      humanErrorTypes,
     },
   }, { status: 201 });
 }
