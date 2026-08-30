@@ -30,7 +30,12 @@ export async function GET(request: Request) {
   }
 
   const columns = [
-    "id","participant_code","participant_label","target_key","target_text","target_type","target_group","client_duration_ms","self_verdict","self_observed_text","self_quality","self_notes","asr_provider","asr_locale","asr_transcript","asr_confidence","asr_duration_seconds","normalized_reference","normalized_transcript","correct_count","deletion_count","insertion_count","substitution_count","wer","lexical_accuracy","human_error_types","calibration_state","analysis_version","academic_effect","created_at","reviews"
+    "id","participant_code","participant_label","target_key","target_text","target_type","target_group",
+    "client_duration_ms","client_decoded_duration_ms","client_rms","client_peak","client_silence_ratio",
+    "self_verdict","self_observed_text","self_quality","self_notes",
+    "asr_provider","asr_locale","asr_transcript","asr_confidence","asr_duration_seconds","asr_words",
+    "normalized_reference","normalized_transcript","alignment","correct_count","deletion_count","insertion_count","substitution_count","wer","lexical_accuracy",
+    "pronunciation_reference","human_observed_units","human_error_types","calibration_state","analysis_version","academic_effect","created_at","reviews"
   ];
   const rows = (samples || []).map((sample) => [
     sample.id,
@@ -41,6 +46,10 @@ export async function GET(request: Request) {
     sample.target_type,
     sample.target_group,
     sample.client_duration_ms,
+    sample.client_decoded_duration_ms,
+    sample.client_rms,
+    sample.client_peak,
+    sample.client_silence_ratio,
     sample.self_verdict,
     sample.self_observed_text,
     sample.self_quality,
@@ -50,14 +59,18 @@ export async function GET(request: Request) {
     sample.asr_transcript,
     sample.asr_confidence,
     sample.asr_duration_seconds,
+    sample.asr_words,
     sample.normalized_reference,
     sample.normalized_transcript,
+    sample.alignment,
     sample.correct_count,
     sample.deletion_count,
     sample.insertion_count,
     sample.substitution_count,
     sample.wer,
     sample.lexical_accuracy,
+    sample.pronunciation_reference,
+    sample.human_observed_units,
     sample.human_error_types,
     sample.calibration_state,
     sample.analysis_version,
