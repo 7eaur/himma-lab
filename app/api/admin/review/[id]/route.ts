@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/admin";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { compareHumanPronunciation } from "@/lib/analysis";
 
 const verdicts = new Set(["correct", "incorrect", "unsure", "invalid"]);
 const qualities = new Set(["good", "noisy", "too_short", "silence", "unclear", "corrupt"]);
@@ -22,6 +23,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (verdict === "incorrect" && !observedText) return NextResponse.json({ detail: "حدد ما الذي سمعه المراجع عند اختيار خطأ." }, { status: 422 });
   if (![1, 2, 3].includes(reviewerSlot)) return NextResponse.json({ detail: "خانة المراجع غير صالحة." }, { status: 422 });
 
+  const { data: sample } = await supabase.from("calibration_samples").select("target_text").eq("id", id).maybeSingle();
+  if (!sample) return NextResponse.json({ detail: "العينة غير موجودة." }, { status: 404 });
+  const human = observedText ? compareHumanPronunciation(sample.target_text, observedText) : { observedUnits: [], errorTypes: [] };
+
   const { error } = await supabase.from("calibration_reviews").upsert({
     sample_id: id,
     reviewer_slot: reviewerSlot,
@@ -30,8 +35,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     quality,
     reviewer_confidence: confidence,
     notes: String(body?.notes || "").trim() || null,
+    observed_units: human.observedUnits,
+    error_types: human.errorTypes,
   }, { onConflict: "sample_id,reviewer_slot" });
 
   if (error) return NextResponse.json({ detail: "تعذر حفظ المراجعة." }, { status: 400 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, errorTypes: human.errorTypes });
 }
