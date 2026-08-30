@@ -22,17 +22,6 @@ import {
 import { UnitAnnotationEditor } from "@/components/unit-annotation-editor";
 
 type Verdict = "correct" | "incorrect" | "unsure";
-type SavedAnalysis = {
-  transcript: string | null;
-  confidence: number | null;
-  correct: number | null;
-  deletion: number | null;
-  insertion: number | null;
-  substitution: number | null;
-  wer: number | null;
-  lexicalAccuracy: number | null;
-  calibrationState: string;
-};
 
 const targetOptionText = (label: string, text: string, index: number) => {
   const clean = text.replace(/\s+/g, " ").trim();
@@ -66,7 +55,7 @@ export default function LabPage() {
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<{ kind: "info" | "success" | "error"; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [savedAnalysis, setSavedAnalysis] = useState<SavedAnalysis | null>(null);
+  const [saved, setSaved] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number | null>(null);
@@ -116,14 +105,14 @@ export default function LabPage() {
 
   const resetSample = () => {
     clearRecording(target);
-    setSavedAnalysis(null);
+    setSaved(false);
   };
 
   const chooseTarget = (key: string) => {
     const nextTarget = TARGETS.find((item) => item.key === key) ?? target;
     setTargetKey(key);
     clearRecording(nextTarget);
-    setSavedAnalysis(null);
+    setSaved(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -134,7 +123,7 @@ export default function LabPage() {
       setTargetKey(firstTarget.key);
       clearRecording(firstTarget);
     }
-    setSavedAnalysis(null);
+    setSaved(false);
   };
 
   const startRecording = async () => {
@@ -191,7 +180,7 @@ export default function LabPage() {
     }
 
     setSubmitting(true);
-    setStatus({ kind: "info", text: "جاري فحص جودة التسجيل وحفظه وتحليل القراءة..." });
+    setStatus({ kind: "info", text: "جاري فحص جودة التسجيل وحفظه..." });
     try {
       const audioQuality = await analyzeClientAudio(audioBlob);
       const form = new FormData();
@@ -214,8 +203,8 @@ export default function LabPage() {
       const response = await fetch("/api/recordings", { method: "POST", body: form });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.detail || "تعذر حفظ العينة");
-      setSavedAnalysis(payload?.analysis ?? null);
-      setStatus({ kind: "success", text: "تم حفظ التسجيل وGround Truth المفصل ومؤشرات الجودة ونتيجة التحليل." });
+      setSaved(true);
+      setStatus({ kind: "success", text: "تم حفظ التسجيل بنجاح. يمكنك الانتقال إلى النص التالي." });
     } catch (error) {
       setStatus({ kind: "error", text: error instanceof Error ? error.message : "تعذر حفظ العينة" });
     } finally {
@@ -255,8 +244,8 @@ export default function LabPage() {
 
         <section className="section-picker-card content-navigator-card">
           <div className="content-navigator-grid">
-            <label className="content-select-field" htmlFor="section"><span>مجموعة المحتوى</span><select id="section" value={section} onChange={(event) => changeSection(event.target.value)} disabled={recording || Boolean(savedAnalysis)}>{TARGET_SECTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-            <label className="content-select-field" htmlFor="target"><span>النص المطلوب تسجيله</span><select id="target" value={target.key} onChange={(event) => chooseTarget(event.target.value)} disabled={recording || Boolean(savedAnalysis)}>{sectionTargets.map((item, index) => <option key={item.key} value={item.key}>{targetOptionText(item.label, item.text, index)}</option>)}</select></label>
+            <label className="content-select-field" htmlFor="section"><span>مجموعة المحتوى</span><select id="section" value={section} onChange={(event) => changeSection(event.target.value)} disabled={recording || saved}>{TARGET_SECTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+            <label className="content-select-field" htmlFor="target"><span>النص المطلوب تسجيله</span><select id="target" value={target.key} onChange={(event) => chooseTarget(event.target.value)} disabled={recording || saved}>{sectionTargets.map((item, index) => <option key={item.key} value={item.key}>{targetOptionText(item.label, item.text, index)}</option>)}</select></label>
           </div>
           <p className="content-current-preview"><strong>المحدد الآن:</strong> {target.text}</p>
         </section>
@@ -265,13 +254,13 @@ export default function LabPage() {
           <span className="task-label"><Volume2 size={17} /> {target.label}</span>
           <p className="instruction">{target.instruction}</p>
           <div className={`reading-target reading-target-${target.type}`}>{target.text}</div>
-          {!audioBlob && !recording && !savedAnalysis && <button type="button" className="record-main" onClick={() => void startRecording()}><span><Mic2 size={29} /></span>ابدأ التسجيل</button>}
+          {!audioBlob && !recording && !saved && <button type="button" className="record-main" onClick={() => void startRecording()}><span><Mic2 size={29} /></span>ابدأ التسجيل</button>}
           {recording && <button type="button" className="record-main recording" onClick={stopRecording}><span><CircleStop size={29} /></span>إيقاف التسجيل</button>}
           {status && <div className={`status status-${status.kind}`}>{status.text}</div>}
-          {audioUrl && !recording && <div className="review-audio"><div className="review-audio-title"><Headphones size={18} /><strong>استمع لتسجيلك</strong><span>{(durationMs / 1000).toFixed(1)} ث</span></div><audio controls src={audioUrl} preload="metadata" />{!savedAnalysis && <button type="button" className="retry-link" onClick={resetSample}><RotateCcw size={16} /> إعادة التسجيل</button>}</div>}
+          {audioUrl && !recording && <div className="review-audio"><div className="review-audio-title"><Headphones size={18} /><strong>استمع لتسجيلك</strong><span>{(durationMs / 1000).toFixed(1)} ث</span></div><audio controls src={audioUrl} preload="metadata" />{!saved && <button type="button" className="retry-link" onClick={resetSample}><RotateCcw size={16} /> إعادة التسجيل</button>}</div>}
         </section>
 
-        {audioBlob && !recording && !savedAnalysis && <section className="annotation-card rich-ground-truth-card">
+        {audioBlob && !recording && !saved && <section className="annotation-card rich-ground-truth-card">
           <div className="annotation-heading"><CheckCircle2 size={22} /><div><h2>راجع التسجيل قبل الحفظ</h2><p>هذه البيانات هي Ground Truth التي سنستخدمها لمعايرة الحروف والحركات ومقارنة نتيجة Azure بالحكم البشري.</p></div></div>
 
           <div className="ground-truth-step">
@@ -314,15 +303,11 @@ export default function LabPage() {
 
           <details className="optional-details"><summary>ملاحظة إضافية اختيارية</summary><label>ملاحظة<textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="أي ملاحظة تساعد المراجع لاحقًا" /></label></details>
 
-          <button type="button" className="primary-action" onClick={() => void submitSample()} disabled={submitting || !verdict}><Send size={18} /> {submitting ? "جاري الحفظ والتحليل..." : "حفظ وتحليل التسجيل"}</button>
+          <button type="button" className="primary-action" onClick={() => void submitSample()} disabled={submitting || !verdict}><Send size={18} /> {submitting ? "جاري الحفظ والتحليل..." : "حفظ وإرسال للمراجعة"}</button>
         </section>}
 
-        {savedAnalysis && <section className="analysis-result-card">
-          <div className="analysis-result-heading"><CheckCircle2 size={23} /><div><h2>نتيجة العينة المحفوظة</h2><p>تم حفظ Ground Truth البشري منفصلًا عن نتيجة Azure. هذه النتائج الآلية للمقارنة والمعايرة وليست درجة أكاديمية.</p></div></div>
-          <div className="analysis-transcript"><span>ما تعرّف عليه Azure</span><strong>{savedAnalysis.transcript || "لم يتعرّف على كلام واضح"}</strong></div>
-          <div className="analysis-metrics"><div><span>الدقة اللفظية</span><strong>{savedAnalysis.lexicalAccuracy == null ? "—" : `${Math.round(savedAnalysis.lexicalAccuracy * 100)}%`}</strong></div><div><span>WER</span><strong>{savedAnalysis.wer == null ? "—" : `${Math.round(savedAnalysis.wer * 100)}%`}</strong></div><div><span>ثقة Azure</span><strong>{savedAnalysis.confidence == null ? "—" : `${Math.round(savedAnalysis.confidence * 100)}%`}</strong></div></div>
-          <div className="cdis-grid"><div><span>صحيح</span><strong>{savedAnalysis.correct ?? "—"}</strong></div><div><span>حذف</span><strong>{savedAnalysis.deletion ?? "—"}</strong></div><div><span>إضافة</span><strong>{savedAnalysis.insertion ?? "—"}</strong></div><div><span>استبدال</span><strong>{savedAnalysis.substitution ?? "—"}</strong></div></div>
-          <div className="calibration-warning"><ShieldCheck size={18} /><div><strong>الحروف والحركات: تجمع للمعايرة الآن</strong><p>نحفظ موضع الخطأ والحركة المسموعة وثقة المراجع. لن نحولها إلى حكم آلي على الفتحة/الكسرة/الضمة قبل التحقق الإحصائي المستقل.</p></div></div>
+        {saved && <section className="analysis-result-card participant-save-confirmation">
+          <div className="analysis-result-heading"><CheckCircle2 size={23} /><div><h2>تم حفظ التسجيل</h2><p>شكرًا لك. تم إرسال التسجيل للمراجعة، ويمكنك الآن الانتقال إلى النص التالي.</p></div></div>
           <button type="button" className="primary-action" onClick={nextTarget}><span>التالي</span><ArrowLeft size={19} /></button>
         </section>}
       </div>
