@@ -10,6 +10,7 @@ function generateCode() {
 export function CreateParticipantCode() {
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
+  const [datasetSplit, setDatasetSplit] = useState("unassigned");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -21,13 +22,14 @@ export function CreateParticipantCode() {
       const response = await fetch("/api/admin/participants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, label }),
+        body: JSON.stringify({ code, label, datasetSplit }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.detail || "تعذر إنشاء الكود");
       setMessage(`تم إنشاء الكود ${payload.code}`);
       setCode("");
       setLabel("");
+      setDatasetSplit("unassigned");
       window.location.reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "تعذر إنشاء الكود");
@@ -41,7 +43,7 @@ export function CreateParticipantCode() {
       <div className="section-heading">
         <div>
           <h3>إضافة مشارك</h3>
-          <p className="muted">لا توجد حسابات جاهزة. المشرف ينشئ كودًا مجهولًا لكل مشارك.</p>
+          <p className="muted">أنشئ كودًا مجهولًا. إذا بدأت مرحلة المعايرة، ضع كل متحدث في مجموعة واحدة فقط حتى لا تتسرب صوته بين التدريب والتحقق.</p>
         </div>
       </div>
       <label className="label" htmlFor="new-code">كود المشارك</label>
@@ -51,6 +53,13 @@ export function CreateParticipantCode() {
       </div>
       <label className="label" htmlFor="new-label">وصف اختياري</label>
       <input id="new-label" className="input" value={label} onChange={(event) => setLabel(event.target.value)} placeholder="مثال: تجربة العميل" />
+      <label className="label" htmlFor="dataset-split">مجموعة Dataset</label>
+      <select id="dataset-split" className="select" value={datasetSplit} onChange={(event) => setDatasetSplit(event.target.value)}>
+        <option value="unassigned">غير معيّن الآن</option>
+        <option value="development">Development — تطوير وتجارب</option>
+        <option value="calibration">Calibration — ضبط الحدود</option>
+        <option value="validation">Validation — تحقق نهائي مستقل</option>
+      </select>
       <div className="actions"><button type="submit" className="btn btn-teal" disabled={loading || !code.trim()}><Plus size={17} /> {loading ? "جاري الإنشاء..." : "إنشاء الكود"}</button></div>
       {message && <div className="status status-info participant-create-message">{message}</div>}
     </form>
