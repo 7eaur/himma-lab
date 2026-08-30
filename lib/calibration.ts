@@ -5,7 +5,7 @@ export const CONFIDENCES = ["high", "medium", "low"] as const;
 export const ERROR_CATEGORIES = ["haraka", "letter", "deletion", "insertion", "shadda", "sukun", "tanween", "unclear", "other"] as const;
 export const UNSURE_REASONS = ["cannot_distinguish", "recording_quality", "haraka_uncertain", "letter_uncertain", "other"] as const;
 export const UNIT_VERDICTS = ["correct", "incorrect", "unsure"] as const;
-export const OBSERVED_MARKS = ["فتحة", "كسرة", "ضمة", "سكون", "بدون حركة", "غير متأكد"] as const;
+export const OBSERVED_MARKS = ["فتحة", "كسرة", "ضمة", "سكون", "تنوين فتح", "تنوين كسر", "تنوين ضم", "بدون حركة", "غير متأكد"] as const;
 
 export type Validity = typeof VALIDITIES[number];
 export type Confidence = typeof CONFIDENCES[number];
@@ -64,7 +64,11 @@ const markToChar: Record<string, string> = {
   "كسرة": "ِ",
   "ضمة": "ُ",
   "سكون": "ْ",
+  "تنوين فتح": "ً",
+  "تنوين كسر": "ٍ",
+  "تنوين ضم": "ٌ",
 };
+const PRIMARY_MARKS = ["فتحة", "كسرة", "ضمة", "سكون", "تنوين فتح", "تنوين كسر", "تنوين ضم"];
 
 export function displayObservedUnit(unit: UnitAnnotation) {
   if (!unit.observedLetter) return "—";
@@ -80,7 +84,7 @@ export function createUnitAnnotations(text: string): UnitAnnotation[] {
     expectedMarks: unit.marks,
     verdict: "correct",
     observedLetter: unit.letter,
-    observedMark: unit.marks.find((mark) => ["فتحة", "كسرة", "ضمة", "سكون"].includes(mark)) || "بدون حركة",
+    observedMark: unit.marks.find((mark) => PRIMARY_MARKS.includes(mark)) || "بدون حركة",
     observedShadda: unit.marks.includes("شدة"),
     note: "",
   }));
@@ -120,11 +124,15 @@ export function unitAnnotationErrorTypes(units: UnitAnnotation[]) {
     if (unit.verdict !== "incorrect") continue;
     if (!unit.observedLetter) errors.add("letter_deletion");
     else if (unit.observedLetter !== unit.expectedLetter) errors.add("letter_substitution");
-    const expectedShort = unit.expectedMarks.find((mark) => ["فتحة", "كسرة", "ضمة"].includes(mark));
-    if (expectedShort && unit.observedMark && unit.observedMark !== expectedShort) errors.add("haraka_mismatch");
-    if (unit.expectedMarks.includes("سكون") && unit.observedMark !== "سكون") errors.add("sukun_mismatch");
+
+    const expectedPrimary = unit.expectedMarks.find((mark) => PRIMARY_MARKS.includes(mark)) || "بدون حركة";
+    const observedPrimary = unit.observedMark || "غير متأكد";
+    if (observedPrimary !== "غير متأكد" && expectedPrimary !== observedPrimary) {
+      if (expectedPrimary.startsWith("تنوين") || observedPrimary.startsWith("تنوين")) errors.add("tanween_mismatch");
+      else if (expectedPrimary === "سكون" || observedPrimary === "سكون") errors.add("sukun_mismatch");
+      else errors.add("haraka_mismatch");
+    }
     if (unit.expectedMarks.includes("شدة") !== Boolean(unit.observedShadda)) errors.add("shadda_mismatch");
-    if (unit.expectedMarks.some((mark) => mark.startsWith("تنوين"))) errors.add("tanween_mismatch");
   }
   return Array.from(errors);
 }
