@@ -95,6 +95,11 @@ tr:last-child td { border-bottom: 0; }
 .reviewer-form-heading p { margin: 5px 0 0; color: var(--himma-muted); line-height: 1.75; }
 .reviewer-observed-input { margin-top: 10px; }
 .reviewer-message { margin-top: 12px; }
+.participant-create-card .section-heading h3 { margin: 0; }
+.participant-code-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: stretch; }
+.participant-code-row .input { min-width: 0; }
+.participant-generate-button { white-space: nowrap; }
+.participant-create-message { margin-bottom: 0; }
 
 /* Calibration status uses Himma yellow as a limited attention accent. */
 .calibration-warning, .calibration-note { border-color: #f1d48d; background: #fffaf0; }
@@ -119,6 +124,8 @@ tr:last-child td { border-bottom: 0; }
   .admin-stats { grid-template-columns: 1fr 1fr; gap: 9px; }
   .admin-stats .stat { min-width: 0; padding: 14px 12px; }
   .table-wrap { border-radius: 14px; }
+  .participant-code-row { grid-template-columns: 1fr; }
+  .participant-generate-button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
