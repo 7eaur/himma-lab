@@ -11,7 +11,25 @@ export type CalibrationTarget = {
   contrasts: string[];
 };
 
-const t = (key: string, text: string, type: TargetType, group: string, section: string, label: string, instruction = "اقرأ النص بصوت واضح.", contrasts: string[] = []): CalibrationTarget => ({ key, text, type, group, section, label, instruction, contrasts });
+const SHORT_HARAKA_MARKS = ["َ", "ِ", "ُ", "ْ"];
+
+function defaultContrasts(text: string, type: TargetType, provided: string[]) {
+  if (provided.length || type !== "letter_with_haraka") return provided;
+  const letter = text.normalize("NFC").match(/[\u0621-\u064A]/)?.[0];
+  if (!letter) return provided;
+  return SHORT_HARAKA_MARKS.map((mark) => `${letter}${mark}`).filter((candidate) => candidate !== text.normalize("NFC"));
+}
+
+const t = (key: string, text: string, type: TargetType, group: string, section: string, label: string, instruction = "اقرأ النص بصوت واضح.", contrasts: string[] = []): CalibrationTarget => ({
+  key,
+  text,
+  type,
+  group,
+  section,
+  label,
+  instruction,
+  contrasts: defaultContrasts(text, type, contrasts),
+});
 
 export const TARGETS: CalibrationTarget[] = [
   // الاختبار القبلي — عناصر التسجيل المعتمدة
@@ -24,10 +42,10 @@ export const TARGETS: CalibrationTarget[] = [
 
   // المستوى الأول — جميع مهام التسجيل المعتمدة
   ...["م","ب","س","ق","ر"].map((x, i) => t(`l1-r4-${i+1}`, x, "letter", "l1-reinforcement", "المستوى الأول · تقوية", `تقوية 4 · اقرأ الحرف ${i+1}`, "اقرأ الحرف مرة واحدة بوضوح.")),
-  ...["مَ","بُ","سِ","قَ","رُ"].map((x, i) => t(`l1-r5-${i+1}`, x, "letter_with_haraka", "l1-reinforcement", "المستوى الأول · تقوية", `تقوية 5 · اقرأ المقطع ${i+1}`, "اقرأ الحرف مع حركته كما هو مكتوب.", x === "بُ" ? ["بَ","بِ","بْ"] : [])),
+  ...["مَ","بُ","سِ","قَ","رُ"].map((x, i) => t(`l1-r5-${i+1}`, x, "letter_with_haraka", "l1-reinforcement", "المستوى الأول · تقوية", `تقوية 5 · اقرأ المقطع ${i+1}`, "اقرأ الحرف مع حركته كما هو مكتوب.")),
 
   // المستوى الثاني — الأنشطة الأساسية التي تعتمد التسجيل
-  ...["مَ","بِ","سُ","قِ","رَ"].map((x, i) => t(`l2-core2-${i+1}`, x, "letter_with_haraka", "l2-core", "المستوى الثاني", `النشاط 2 · اقرأ المقطع ${i+1}`, "اقرأ المقطع كما هو مكتوب.", x === "بِ" ? ["بَ","بُ","بْ"] : [])),
+  ...["مَ","بِ","سُ","قِ","رَ"].map((x, i) => t(`l2-core2-${i+1}`, x, "letter_with_haraka", "l2-core", "المستوى الثاني", `النشاط 2 · اقرأ المقطع ${i+1}`, "اقرأ المقطع كما هو مكتوب.")),
   ...["كَتَبَ","جَلَسَ","رَسَمَ","فَتَحَ","ذَهَبَ"].map((x, i) => t(`l2-core3-${i+1}`, x, "word", "l2-core", "المستوى الثاني", `النشاط 3 · كلمات الفتحة ${i+1}`)),
   ...["شَرِبَ","لَعِبَ","سَمِعَ","رَكِبَ","فَهِمَ"].map((x, i) => t(`l2-core4-${i+1}`, x, "word", "l2-core", "المستوى الثاني", `النشاط 4 · حركات متنوعة ${i+1}`)),
   ...["قِطَّة","سُلَّم","تُفَّاح","مُعَلِّم","سَيَّارَة"].map((x, i) => t(`l2-core7-${i+1}`, x, "word", "l2-core", "المستوى الثاني", `النشاط 7 · كلمات الشدة ${i+1}`)),
