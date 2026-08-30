@@ -6,11 +6,14 @@ import { isAdminRequest } from "@/lib/admin";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { CreateParticipantCode } from "@/components/create-participant-code";
 import { TARGETS } from "@/lib/targets";
+import { VALIDITY_LABELS, type Validity } from "@/lib/calibration";
 
 export const dynamic = "force-dynamic";
 
 const verdictLabel: Record<string, string> = { correct: "صحيح", incorrect: "خطأ", unsure: "غير متأكد", invalid: "غير صالح" };
 const qualityLabel: Record<string, string> = { good: "واضح", noisy: "ضوضاء", too_short: "قصير", silence: "صمت", unclear: "غير واضح", corrupt: "تالف" };
+const splitLabel: Record<string, string> = { unassigned: "غير معيّن", development: "Development", calibration: "Calibration", validation: "Validation" };
+const validityLabel = (value: unknown) => VALIDITY_LABELS[String(value || "valid") as Validity] || String(value || "—");
 
 export default async function AdminPage() {
   if (!(await isAdminRequest())) redirect("/admin/login");
@@ -23,14 +26,14 @@ export default async function AdminPage() {
     supabase.from("calibration_participants").select("id", { count: "exact", head: true }),
     supabase.from("calibration_samples").select("id", { count: "exact", head: true }),
     supabase.from("calibration_reviews").select("id", { count: "exact", head: true }),
-    supabase.from("calibration_samples").select("id,target_text,target_key,target_group,self_verdict,self_observed_text,self_quality,asr_transcript,asr_confidence,asr_error,correct_count,deletion_count,insertion_count,substitution_count,wer,lexical_accuracy,calibration_state,created_at,participant_id").order("created_at", { ascending: false }).limit(40),
-    supabase.from("calibration_participants").select("id,code,label,is_active,created_at").order("created_at", { ascending: false }).limit(100),
-    supabase.from("calibration_samples").select("target_key,self_verdict,self_quality,asr_transcript,wer,lexical_accuracy,calibration_state").limit(5000),
+    supabase.from("calibration_samples").select("id,target_text,target_key,target_group,self_verdict,self_observed_text,self_quality,self_validity,self_error_category,self_unsure_reason,dataset_split,asr_transcript,asr_confidence,asr_error,correct_count,deletion_count,insertion_count,substitution_count,wer,lexical_accuracy,calibration_state,created_at,participant_id").order("created_at", { ascending: false }).limit(40),
+    supabase.from("calibration_participants").select("id,code,label,is_active,dataset_split,created_at").order("created_at", { ascending: false }).limit(100),
+    supabase.from("calibration_samples").select("target_key,self_verdict,self_quality,self_validity,asr_transcript,wer,lexical_accuracy,calibration_state").limit(5000),
   ]);
 
   const all = dataset || [];
   const analyzed = all.filter((sample) => sample.asr_transcript).length;
-  const validQuality = all.filter((sample) => sample.self_quality === "good").length;
+  const validQuality = all.filter((sample) => (sample.self_validity || (sample.self_quality === "good" ? "valid" : sample.self_quality)) === "valid").length;
   const accuracyValues = all.map((sample) => Number(sample.lexical_accuracy)).filter((value) => Number.isFinite(value));
   const werValues = all.map((sample) => Number(sample.wer)).filter((value) => Number.isFinite(value));
   const averageAccuracy = accuracyValues.length ? accuracyValues.reduce((sum, value) => sum + value, 0) / accuracyValues.length : null;
@@ -47,7 +50,7 @@ export default async function AdminPage() {
       </header>
 
       <section className="admin-hero">
-        <div><span className="soft-badge"><ShieldCheck size={16} /> لوحة المشرف</span><h1>بيانات معايرة النطق</h1><p className="lead">تجمع هذه اللوحة التسجيل الأصلي، المرجع البشري، نتيجة Azure، المحاذاة وC/D/I/S وWER والدقة اللفظية. تقييم الحركات يبقى غير معاير حتى تثبته البيانات.</p></div>
+        <div><span className="soft-badge"><ShieldCheck size={16} /> لوحة المشرف</span><h1>بيانات معايرة النطق</h1><p className="lead">تجمع هذه اللوحة التسجيل الأصلي، Ground Truth البشري، نتيجة Azure، المحاذاة وC/D/I/S وWER والدقة اللفظية، مع فصل بيانات Development وCalibration وValidation.</p></div>
         <div className="coverage-card"><Target size={25} /><strong>{coveredTargets} / {TARGETS.length}</strong><span>هدفًا تم جمع عينة له</span></div>
       </section>
 
@@ -56,7 +59,7 @@ export default async function AdminPage() {
         <div className="stat"><Mic2 size={21} /><span className="muted">التسجيلات</span><strong>{samplesCount ?? 0}</strong></div>
         <div className="stat"><Database size={21} /><span className="muted">المراجعات</span><strong>{reviewsCount ?? 0}</strong></div>
         <div className="stat"><Activity size={21} /><span className="muted">حللها Azure</span><strong>{analyzed}</strong></div>
-        <div className="stat"><ShieldCheck size={21} /><span className="muted">جودة واضحة</span><strong>{validQuality}</strong></div>
+        <div className="stat"><ShieldCheck size={21} /><span className="muted">صالحة للحكم</span><strong>{validQuality}</strong></div>
         <div className="stat"><BarChart3 size={21} /><span className="muted">متوسط الدقة اللفظية</span><strong>{averageAccuracy == null ? "—" : `${Math.round(averageAccuracy * 100)}%`}</strong></div>
         <div className="stat"><BarChart3 size={21} /><span className="muted">متوسط WER</span><strong>{averageWer == null ? "—" : `${Math.round(averageWer * 100)}%`}</strong></div>
         <div className="stat"><Target size={21} /><span className="muted">الأهداف المغطاة</span><strong>{coveredTargets}</strong></div>
@@ -65,24 +68,25 @@ export default async function AdminPage() {
       <div className="admin-grid">
         <section className="card admin-main-card">
           <div className="section-heading"><div><h2>آخر التسجيلات</h2><p className="muted">النتيجة الآلية دليل للمراجعة وليست درجة أكاديمية.</p></div></div>
-          <div className="table-wrap"><table><thead><tr><th>الهدف</th><th>وسم المشارك</th><th>Azure</th><th>الدقة</th><th>C/D/I/S</th><th>الجودة</th><th>الإجراء</th></tr></thead><tbody>
+          <div className="table-wrap"><table><thead><tr><th>الهدف</th><th>Ground Truth</th><th>Azure</th><th>الدقة</th><th>C/D/I/S</th><th>الصلاحية</th><th>المجموعة</th><th>الإجراء</th></tr></thead><tbody>
             {(latestSamples || []).map((sample) => <tr key={sample.id}>
               <td className="target-cell">{sample.target_text}</td>
-              <td><span className="badge">{verdictLabel[sample.self_verdict] || sample.self_verdict}</span>{sample.self_observed_text && sample.self_observed_text !== sample.target_text ? <small className="table-note">{sample.self_observed_text}</small> : null}</td>
+              <td><span className="badge">{verdictLabel[sample.self_verdict] || sample.self_verdict}</span>{sample.self_observed_text && sample.self_observed_text !== sample.target_text ? <small className="table-note">{sample.self_observed_text}</small> : null}{sample.self_error_category ? <small className="table-note">{sample.self_error_category}</small> : null}</td>
               <td>{sample.asr_transcript || sample.asr_error || "غير محلل"}</td>
               <td>{sample.lexical_accuracy == null ? "—" : `${Math.round(Number(sample.lexical_accuracy) * 100)}%`}</td>
               <td>{sample.correct_count ?? "—"}/{sample.deletion_count ?? "—"}/{sample.insertion_count ?? "—"}/{sample.substitution_count ?? "—"}</td>
-              <td>{qualityLabel[sample.self_quality] || sample.self_quality}</td>
+              <td>{sample.self_validity ? validityLabel(sample.self_validity) : qualityLabel[sample.self_quality] || sample.self_quality}</td>
+              <td><span className="badge">{splitLabel[sample.dataset_split] || sample.dataset_split || "غير معيّن"}</span></td>
               <td><Link className="btn btn-secondary" href={`/admin/review/${sample.id}`}>مراجعة</Link></td>
             </tr>)}
-            {(!latestSamples || latestSamples.length === 0) && <tr><td colSpan={7} className="muted">لا توجد عينات بعد. أنشئ كود مشاركة وابدأ أول تسجيل.</td></tr>}
+            {(!latestSamples || latestSamples.length === 0) && <tr><td colSpan={8} className="muted">لا توجد عينات بعد. أنشئ كود مشاركة وابدأ أول تسجيل.</td></tr>}
           </tbody></table></div>
         </section>
 
         <aside className="admin-side">
           <CreateParticipantCode />
-          <div className="card"><div className="section-heading"><div><h3>أكواد المشاركين</h3><p className="muted">لا توجد أكواد افتراضية؛ المشرف ينشئها فقط.</p></div></div><div className="participant-list">{(participants || []).map((participant) => <div key={participant.id} className="participant-row"><div><strong>{participant.code}</strong><span>{participant.label || "بدون وصف"}</span></div><span className="badge">{participant.is_active ? "مفعّل" : "موقوف"}</span></div>)}{(!participants || participants.length === 0) && <div className="empty-mini">لم تُنشئ أي مشارك بعد.</div>}</div></div>
-          <div className="card calibration-note"><ShieldCheck size={21} /><div><h3>حالة المعايرة</h3><p>التحليل اللفظي والمحاذاة يعملان. الحكم الآلي على الحركات والشدة والسكون يبقى <strong>غير معاير</strong> حتى نجمع ونراجع العينات.</p></div></div>
+          <div className="card"><div className="section-heading"><div><h3>أكواد المشاركين</h3><p className="muted">لا توجد أكواد افتراضية؛ المشرف ينشئها ويحدد مجموعة Dataset لكل متحدث.</p></div></div><div className="participant-list">{(participants || []).map((participant) => <div key={participant.id} className="participant-row"><div><strong>{participant.code}</strong><span>{participant.label || "بدون وصف"}</span><small>{splitLabel[participant.dataset_split] || participant.dataset_split || "غير معيّن"}</small></div><span className="badge">{participant.is_active ? "مفعّل" : "موقوف"}</span></div>)}{(!participants || participants.length === 0) && <div className="empty-mini">لم تُنشئ أي مشارك بعد.</div>}</div></div>
+          <div className="card calibration-note"><ShieldCheck size={21} /><div><h3>حالة المعايرة</h3><p>التحليل اللفظي والمحاذاة يعملان. الحكم الآلي على الحركات والشدة والسكون والتنوين يبقى <strong>غير معاير</strong> حتى نجمع ونراجع عينات مستقلة.</p></div></div>
         </aside>
       </div>
     </div></main>
