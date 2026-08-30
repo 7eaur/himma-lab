@@ -1,9 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LockKeyhole } from "lucide-react";
+import { LockKeyhole, ArrowLeft } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -29,16 +30,22 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <main className="shell"><div className="container" style={{ maxWidth: 560, paddingTop: 70 }}>
-      <Link className="brand" href="/"><span className="brand-mark"><LockKeyhole size={21} /></span><span>لوحة مختبر هِمّة</span></Link>
-      <form className="card" onSubmit={submit} style={{ marginTop: 28 }}>
-        <p className="eyebrow">SUPERVISOR ACCESS</p><h1 style={{ fontSize: 38 }}>دخول المشرف</h1>
-        <p className="muted">رمز الإدارة موجود في متغيرات بيئة الاستضافة ولا يُحفظ داخل GitHub.</p>
-        <label className="label" htmlFor="admin-token">رمز الدخول</label>
-        <input id="admin-token" className="input" type="password" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="current-password" />
-        {error && <div className="status status-error" style={{ marginTop: 14 }}>{error}</div>}
-        <div className="actions"><button className="btn btn-primary" type="submit" disabled={loading}>{loading ? "جاري التحقق..." : "دخول اللوحة"}</button></div>
-      </form>
-    </div></main>
+    <main className="entry-shell supervisor-entry-shell">
+      <div className="entry-card supervisor-login-card">
+        <Link href="/" className="supervisor-logo-link" aria-label="العودة إلى هِمّة"><Image src="/himma-logo.svg" alt="هِمّة" className="himma-logo" width={220} height={100} priority /></Link>
+        <div className="entry-copy supervisor-copy">
+          <span className="soft-badge"><LockKeyhole size={16} /> لوحة المشرف</span>
+          <h1>دخول مشرف المختبر</h1>
+          <p>أدخل رمز الإدارة للوصول إلى بيانات التسجيلات والمراجعات وإنشاء أكواد المشاركين.</p>
+        </div>
+        <form onSubmit={submit} className="code-form">
+          <label htmlFor="admin-token">رمز دخول المشرف</label>
+          <div className="code-input-wrap"><LockKeyhole size={20} /><input id="admin-token" type="password" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="current-password" /></div>
+          {error && <div className="status status-error">{error}</div>}
+          <button className="primary-action" type="submit" disabled={loading || !token}>{loading ? "جاري التحقق..." : <>دخول اللوحة <ArrowLeft size={19} /></>}</button>
+        </form>
+        <p className="privacy-note">بيانات التسجيل محفوظة في مساحة خاصة ولا تظهر للمشاركين.</p>
+      </div>
+    </main>
   );
 }
