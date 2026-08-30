@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, CircleStop, Headphones, LogOut, Mic2, RotateCcw, Send, Volume2 } from "lucide-react";
@@ -34,16 +35,11 @@ export default function LabPage() {
       router.replace("/");
       return;
     }
-    setParticipantCode(code);
+    const timer = window.setTimeout(() => setParticipantCode(code), 0);
+    return () => window.clearTimeout(timer);
   }, [router]);
 
-  useEffect(() => {
-    if (!sectionTargets.some((item) => item.key === targetKey) && sectionTargets[0]) {
-      setTargetKey(sectionTargets[0].key);
-    }
-  }, [sectionTargets, targetKey]);
-
-  const target = useMemo(() => TARGETS.find((item) => item.key === targetKey) ?? TARGETS[0], [targetKey]);
+  const target = useMemo(() => TARGETS.find((item) => item.key === targetKey) ?? sectionTargets[0] ?? TARGETS[0], [targetKey, sectionTargets]);
   const targetIndex = sectionTargets.findIndex((item) => item.key === target.key);
 
   const resetSample = () => {
@@ -52,6 +48,12 @@ export default function LabPage() {
   };
 
   const chooseTarget = (key: string) => { setTargetKey(key); resetSample(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const changeSection = (nextSection: string) => {
+    const firstTarget = TARGETS.find((item) => item.section === nextSection);
+    setSection(nextSection);
+    if (firstTarget) setTargetKey(firstTarget.key);
+    resetSample();
+  };
 
   const startRecording = async () => {
     setStatus(null);
@@ -114,7 +116,7 @@ export default function LabPage() {
     <main className="lab-shell">
       <header className="lab-header">
         <div className="lab-header-inner">
-          <img src="/himma-logo.svg" alt="هِمّة" className="lab-logo" />
+          <Image src="/himma-logo.svg" alt="هِمّة" className="lab-logo" width={112} height={51} priority />
           <div className="session-chip"><span>{participantCode}</span><button type="button" onClick={logout} aria-label="خروج"><LogOut size={17} /></button></div>
         </div>
       </header>
@@ -127,7 +129,7 @@ export default function LabPage() {
 
         <section className="section-picker-card">
           <label htmlFor="section">مجموعة الاختبار</label>
-          <select id="section" value={section} onChange={(event) => { setSection(event.target.value); resetSample(); }}>
+          <select id="section" value={section} onChange={(event) => changeSection(event.target.value)}>
             {TARGET_SECTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
           <div className="target-scroll" aria-label="عناصر المجموعة">
