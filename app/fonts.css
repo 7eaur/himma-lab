@@ -1,0 +1,4 @@
+body { font-family: var(--font-tajawal), "Noto Sans Arabic", Arial, sans-serif; }
+.admin-shell,
+.supervisor-entry-shell { font-family: var(--font-ibm-plex-arabic), var(--font-tajawal), "Noto Sans Arabic", Arial, sans-serif; }
+.reading-target { font-family: var(--font-tajawal), "Noto Sans Arabic", Arial, sans-serif; }
