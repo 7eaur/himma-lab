@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 const verdictLabel: Record<string, string> = { correct: "صحيح", incorrect: "خطأ", unsure: "غير متأكد", invalid: "غير صالح" };
 const qualityLabel: Record<string, string> = { good: "واضح", noisy: "ضوضاء", too_short: "قصير", silence: "صمت", unclear: "غير واضح", corrupt: "تالف" };
+const percent = (value: unknown) => value == null ? "—" : `${Math.round(Number(value) * 100)}%`;
 
 export default async function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdminRequest())) redirect("/admin/login");
@@ -42,12 +43,20 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
             <div><span>المدة</span><strong>{sample.client_duration_ms ? `${(Number(sample.client_duration_ms) / 1000).toFixed(1)} ث` : "—"}</strong></div>
           </div>
 
+          <div className="section-heading evidence-title"><div><h2>جودة الصوت التشخيصية</h2><p className="muted">مؤشرات من الإشارة الصوتية نفسها، ولا تُستخدم كدرجة أكاديمية قبل المعايرة.</p></div><Activity size={22} /></div>
+          <div className="cdis-grid">
+            <div><span>المدة المفكوكة</span><strong>{sample.client_decoded_duration_ms == null ? "—" : `${(Number(sample.client_decoded_duration_ms) / 1000).toFixed(1)} ث`}</strong></div>
+            <div><span>RMS</span><strong>{sample.client_rms == null ? "—" : Number(sample.client_rms).toFixed(4)}</strong></div>
+            <div><span>Peak</span><strong>{sample.client_peak == null ? "—" : Number(sample.client_peak).toFixed(4)}</strong></div>
+            <div><span>نسبة الصمت</span><strong>{percent(sample.client_silence_ratio)}</strong></div>
+          </div>
+
           <div className="section-heading evidence-title"><div><h2>التحليل الآلي</h2><p className="muted">Reference-Guided Arabic Reading Analysis</p></div><Activity size={22} /></div>
           <div className="analysis-transcript"><span>Azure Transcript</span><strong>{sample.asr_transcript || "لم يتعرّف على كلام واضح"}</strong><small>{sample.normalized_transcript ? `بعد التطبيع: ${sample.normalized_transcript}` : ""}</small></div>
           <div className="analysis-metrics">
-            <div><span>الدقة اللفظية</span><strong>{sample.lexical_accuracy == null ? "—" : `${Math.round(Number(sample.lexical_accuracy) * 100)}%`}</strong></div>
-            <div><span>WER</span><strong>{sample.wer == null ? "—" : `${Math.round(Number(sample.wer) * 100)}%`}</strong></div>
-            <div><span>ثقة Azure</span><strong>{sample.asr_confidence == null ? "—" : `${Math.round(Number(sample.asr_confidence) * 100)}%`}</strong></div>
+            <div><span>الدقة اللفظية</span><strong>{percent(sample.lexical_accuracy)}</strong></div>
+            <div><span>WER</span><strong>{percent(sample.wer)}</strong></div>
+            <div><span>ثقة Azure</span><strong>{percent(sample.asr_confidence)}</strong></div>
           </div>
           <div className="cdis-grid">
             <div><span>صحيح</span><strong>{sample.correct_count ?? "—"}</strong></div>
