@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -37,7 +38,7 @@ export default function HomePage() {
     <main className="entry-shell">
       <div className="entry-card">
         <div className="entry-brand">
-          <img src="/himma-logo.svg" alt="هِمّة" className="himma-logo" />
+          <Image src="/himma-logo.svg" alt="هِمّة" className="himma-logo" width={230} height={105} priority />
           <p>أتعلم، أتطور، أصل إلى القمة</p>
         </div>
 
