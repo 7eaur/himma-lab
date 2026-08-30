@@ -21,6 +21,12 @@ type SavedAnalysis = {
   calibrationState: string;
 };
 
+const targetOptionText = (label: string, text: string, index: number) => {
+  const clean = text.replace(/\s+/g, " ").trim();
+  const preview = clean.length > 88 ? `${clean.slice(0, 88)}…` : clean;
+  return `${index + 1}. ${label} — ${preview}`;
+};
+
 export default function LabPage() {
   const router = useRouter();
   const [participantCode, setParticipantCode] = useState("");
@@ -190,14 +196,22 @@ export default function LabPage() {
           <div className="progress-track"><span style={{ width: `${((targetIndex + 1) / Math.max(sectionTargets.length, 1)) * 100}%` }} /></div>
         </section>
 
-        <section className="section-picker-card">
-          <label htmlFor="section">مجموعة المحتوى</label>
-          <select id="section" value={section} onChange={(event) => changeSection(event.target.value)} disabled={recording || Boolean(savedAnalysis)}>
-            {TARGET_SECTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <div className="target-scroll" aria-label="عناصر المجموعة">
-            {sectionTargets.map((item, index) => <button type="button" key={item.key} className={item.key === target.key ? "active" : ""} onClick={() => chooseTarget(item.key)} disabled={recording || Boolean(savedAnalysis)}>{index + 1}</button>)}
+        <section className="section-picker-card content-navigator-card">
+          <div className="content-navigator-grid">
+            <label className="content-select-field" htmlFor="section">
+              <span>مجموعة المحتوى</span>
+              <select id="section" value={section} onChange={(event) => changeSection(event.target.value)} disabled={recording || Boolean(savedAnalysis)}>
+                {TARGET_SECTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+            <label className="content-select-field" htmlFor="target">
+              <span>النص المطلوب تسجيله</span>
+              <select id="target" value={target.key} onChange={(event) => chooseTarget(event.target.value)} disabled={recording || Boolean(savedAnalysis)}>
+                {sectionTargets.map((item, index) => <option key={item.key} value={item.key}>{targetOptionText(item.label, item.text, index)}</option>)}
+              </select>
+            </label>
           </div>
+          <p className="content-current-preview"><strong>المحدد الآن:</strong> {target.text}</p>
         </section>
 
         <section className="reading-card">
