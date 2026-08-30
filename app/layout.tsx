@@ -4,6 +4,7 @@ import "./globals.css";
 import "./himma-lab.css";
 import "./fonts.css";
 import "./analytics.css";
+import "./himma-brand.css";
 
 const tajawal = Tajawal({
   subsets: ["arabic"],
