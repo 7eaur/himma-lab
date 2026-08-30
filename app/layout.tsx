@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./himma-lab.css";
 
 export const metadata: Metadata = {
-  title: "مختبر هِمّة للمعايرة",
-  description: "جمع تسجيلات عربية ووسوم بشرية لمعايرة تحليل النطق",
+  title: "مختبر هِمّة للقراءة والنطق",
+  description: "مختبر هِمّة لجمع تسجيلات عربية ووسوم بشرية ومعايرة تحليل القراءة والنطق",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
