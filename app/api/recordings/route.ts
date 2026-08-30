@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { findTarget } from "@/lib/targets";
 import { getSupabaseAdmin, RECORDINGS_BUCKET } from "@/lib/supabase";
 import { transcribeAzure } from "@/lib/azure";
+import { analyzeReading, compareHumanPronunciation } from "@/lib/analysis";
 
 const allowedVerdicts = new Set(["correct", "incorrect", "unsure"]);
 const allowedQuality = new Set(["good", "noisy", "too_short", "silence", "unclear"]);
@@ -49,6 +50,8 @@ export async function POST(request: Request) {
   if (uploadError) return NextResponse.json({ detail: "تعذر رفع التسجيل إلى التخزين." }, { status: 500 });
 
   const azure = await transcribeAzure(audio, target.text);
+  const reading = analyzeReading(target.text, azure.transcript);
+  const human = observedText ? compareHumanPronunciation(target.text, observedText) : { observedUnits: [], errorTypes: [] };
 
   const { data: sample, error: sampleError } = await supabase
     .from("calibration_samples")
@@ -74,6 +77,20 @@ export async function POST(request: Request) {
       asr_words: azure.words,
       asr_request_id: azure.requestId,
       asr_error: azure.error,
+      normalized_reference: reading.normalizedReference,
+      normalized_transcript: reading.normalizedTranscript,
+      alignment: reading.alignment,
+      correct_count: reading.correct,
+      deletion_count: reading.deletion,
+      insertion_count: reading.insertion,
+      substitution_count: reading.substitution,
+      wer: reading.wer,
+      lexical_accuracy: reading.lexicalAccuracy,
+      pronunciation_reference: reading.pronunciationReference,
+      human_observed_units: human.observedUnits,
+      human_error_types: human.errorTypes,
+      calibration_state: "not_calibrated",
+      analysis_version: "reference-guided-v1",
       academic_effect: "none",
     })
     .select("id")
@@ -84,5 +101,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: "تعذر حفظ بيانات العينة." }, { status: 500 });
   }
 
-  return NextResponse.json({ sampleId: sample.id, azureConfigured: azure.configured, azureError: azure.error }, { status: 201 });
+  return NextResponse.json({
+    sampleId: sample.id,
+    azureConfigured: azure.configured,
+    azureError: azure.error,
+    analysis: {
+      transcript: azure.transcript,
+      confidence: azure.confidence,
+      correct: reading.correct,
+      deletion: reading.deletion,
+      insertion: reading.insertion,
+      substitution: reading.substitution,
+      wer: reading.wer,
+      lexicalAccuracy: reading.lexicalAccuracy,
+      calibrationState: "not_calibrated",
+    },
+  }, { status: 201 });
 }
