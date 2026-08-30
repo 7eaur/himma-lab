@@ -3,6 +3,7 @@ import { IBM_Plex_Sans_Arabic, Tajawal } from "next/font/google";
 import "./globals.css";
 import "./himma-lab.css";
 import "./fonts.css";
+import "./analytics.css";
 
 const tajawal = Tajawal({
   subsets: ["arabic"],
