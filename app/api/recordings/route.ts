@@ -145,22 +145,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: "تعذر حفظ بيانات العينة." }, { status: 500 });
   }
 
+  // Participant-facing response intentionally contains no ASR/calibration results.
+  // Full analysis remains stored server-side for supervisor review and analytics only.
   return NextResponse.json({
     sampleId: sample.id,
-    azureConfigured: azure.configured,
-    azureError: azure.error,
-    analysis: {
-      transcript: azure.transcript,
-      confidence: azure.confidence,
-      correct: reading.correct,
-      deletion: reading.deletion,
-      insertion: reading.insertion,
-      substitution: reading.substitution,
-      wer: reading.wer,
-      lexicalAccuracy: reading.lexicalAccuracy,
-      calibrationState: "not_calibrated",
-      qualityEvidence: { decodedDurationMs, rms, peak, silenceRatio },
-      humanErrorTypes,
-    },
+    saved: true,
   }, { status: 201 });
 }
