@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, CircleStop, Headphones, LogOut, Mic2, RotateCcw, Send, Volume2, ArrowLeft, ShieldCheck } from "lucide-react";
 import { TARGETS, TARGET_SECTIONS } from "@/lib/targets";
+import { analyzeClientAudio } from "@/lib/client-audio-quality";
 
 type Verdict = "correct" | "incorrect" | "unsure";
 type Quality = "good" | "noisy" | "too_short" | "silence" | "unclear";
@@ -131,8 +132,9 @@ export default function LabPage() {
     if (!verdict) return setStatus({ kind: "error", text: "حدد هل النطق صحيح أو خطأ أو غير متأكد." });
     if (verdict === "incorrect" && !observedText.trim()) return setStatus({ kind: "error", text: "حدد ما الذي نطقته أو ما الذي سمعته." });
     setSubmitting(true);
-    setStatus({ kind: "info", text: "جاري حفظ التسجيل وتحليل القراءة..." });
+    setStatus({ kind: "info", text: "جاري فحص جودة التسجيل وحفظه وتحليل القراءة..." });
     try {
+      const audioQuality = await analyzeClientAudio(audioBlob);
       const form = new FormData();
       form.append("audio", audioBlob, `sample-${Date.now()}.webm`);
       form.append("participantCode", participantCode);
@@ -142,11 +144,15 @@ export default function LabPage() {
       form.append("quality", quality);
       form.append("notes", notes.trim());
       form.append("durationMs", String(durationMs));
+      if (audioQuality.decodedDurationMs != null) form.append("decodedDurationMs", String(audioQuality.decodedDurationMs));
+      if (audioQuality.rms != null) form.append("rms", String(audioQuality.rms));
+      if (audioQuality.peak != null) form.append("peak", String(audioQuality.peak));
+      if (audioQuality.silenceRatio != null) form.append("silenceRatio", String(audioQuality.silenceRatio));
       const response = await fetch("/api/recordings", { method: "POST", body: form });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.detail || "تعذر حفظ العينة");
       setSavedAnalysis(payload?.analysis ?? null);
-      setStatus({ kind: "success", text: "تم حفظ التسجيل والوسم البشري ونتيجة التحليل." });
+      setStatus({ kind: "success", text: "تم حفظ التسجيل والوسم البشري ومؤشرات الجودة ونتيجة التحليل." });
     } catch (error) {
       setStatus({ kind: "error", text: error instanceof Error ? error.message : "تعذر حفظ العينة" });
     } finally {
@@ -208,7 +214,7 @@ export default function LabPage() {
         </section>
 
         {audioBlob && !recording && !savedAnalysis && <section className="annotation-card">
-          <div className="annotation-heading"><CheckCircle2 size={22} /><div><h2>كيف كان النطق؟</h2><p>اختر ما حدث فعلًا. هذا هو الـGround Truth الذي سنقارن به نتيجة النظام.</p></div></div>
+          <div className="annotation-heading"><CheckCircle2 size={22} /><div><h2>كيف كان النطق؟</h2><p>اختر ما حدث فعلًا. هذا هو المرجع البشري الذي سنقارن به نتيجة النظام.</p></div></div>
           <div className="verdict-options">
             <button type="button" className={verdict === "correct" ? "active good" : ""} onClick={() => { setVerdict("correct"); setObservedText(target.text); }}>نطقتُه بشكل صحيح</button>
             <button type="button" className={verdict === "incorrect" ? "active bad" : ""} onClick={() => { setVerdict("incorrect"); setObservedText(""); }}>كان هناك خطأ</button>
