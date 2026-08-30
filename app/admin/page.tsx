@@ -43,11 +43,11 @@ export default async function AdminPage() {
     <main className="shell admin-shell"><div className="container lab-wrap">
       <header className="admin-brandbar">
         <Link className="admin-brand-logo" href="/admin"><Image src="/himma-logo.svg" alt="هِمّة" width={150} height={68} priority /><span>مختبر القراءة والنطق</span></Link>
-        <div className="nav-links"><Link className="nav-link" href="/lab">فتح المختبر</Link><a className="btn btn-secondary" href="/api/admin/export?format=csv"><Download size={17} /> CSV</a><a className="btn btn-secondary" href="/api/admin/export?format=json"><Download size={17} /> JSON</a></div>
+        <div className="nav-links"><Link className="nav-link" href="/lab">فتح المختبر</Link><Link className="btn btn-secondary" href="/admin/analytics"><BarChart3 size={17} /> التحليلات</Link><a className="btn btn-secondary" href="/api/admin/export?format=csv"><Download size={17} /> CSV</a><a className="btn btn-secondary" href="/api/admin/export?format=json"><Download size={17} /> JSON</a></div>
       </header>
 
       <section className="admin-hero">
-        <div><span className="soft-badge"><ShieldCheck size={16} /> لوحة المشرف</span><h1>بيانات معايرة النطق</h1><p className="lead">تجمع هذه اللوحة التسجيل الأصلي، Ground Truth البشري، نتيجة Azure، المحاذاة وC/D/I/S وWER والدقة اللفظية. تقييم الحركات يبقى غير معاير حتى تثبته البيانات.</p></div>
+        <div><span className="soft-badge"><ShieldCheck size={16} /> لوحة المشرف</span><h1>بيانات معايرة النطق</h1><p className="lead">تجمع هذه اللوحة التسجيل الأصلي، المرجع البشري، نتيجة Azure، المحاذاة وC/D/I/S وWER والدقة اللفظية. تقييم الحركات يبقى غير معاير حتى تثبته البيانات.</p></div>
         <div className="coverage-card"><Target size={25} /><strong>{coveredTargets} / {TARGETS.length}</strong><span>هدفًا تم جمع عينة له</span></div>
       </section>
 
