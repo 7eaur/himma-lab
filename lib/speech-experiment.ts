@@ -25,9 +25,30 @@ export const TEST_CASES: TestCase[] = [
   { key: "sentence-2", label: "جملة قصيرة ثانية", text: "تلعب مريم بالكرة.", mode: "lexical", focus: null },
   { key: "passage-short", label: "نص قصير", text: "ذهب سالم إلى الحديقة. رأى عصفورا فوق شجرة ثم عاد إلى البيت.", mode: "lexical", focus: null },
   { key: "fluency-short", label: "طلاقة قصيرة", text: "دخل خالد مكتبة المدرسة في وقت الفسحة. بحث عن كتاب عن الحيوانات، فساعده أمين المكتبة. جلس في مكان هادئ وقرأ الكتاب، ثم أعاده إلى مكانه.", mode: "fluency", focus: "timed_passage" },
-]
+];
+
+const TARGET_ALIASES: Record<string, string[]> = {
+  "مَ": ["م", "ما", "ماء", "ma"],
+  "مِ": ["م", "مي", "mi"],
+  "مُ": ["م", "مو", "mu"],
+  "بَ": ["ب", "با", "باء", "ba"],
+  "بِ": ["ب", "بي", "bi"],
+  "بُ": ["ب", "بو", "bu"],
+};
+
+function normalized(value: string) {
+  return normalizeArabic(value).toLocaleLowerCase("ar");
+}
+
+export function aliasEvidence(referenceText: string, transcript: string | null) {
+  if (!transcript?.trim()) {
+    return { matched: false, matchedAlias: null, effect: null };
+  }
+
+  const aliases = TARGET_ALIASES[referenceText.normalize("NFC")] || [];
   const observed = normalized(transcript);
   const matchedAlias = aliases.find((alias) => normalized(alias) === observed) || null;
+
   return {
     matched: Boolean(matchedAlias),
     matchedAlias,
@@ -40,23 +61,52 @@ export function decisionPreview(mode: SpeechMode, referenceText: string, transcr
   const alias = aliasEvidence(referenceText, transcript);
 
   if (!transcript?.trim()) {
-    return { state: "retry_required" as DecisionState, reason: "no_transcript", reading, alias };
-  }
-
-  if (mode === "lexical") {
-    const errors = (reading.deletion || 0) + (reading.insertion || 0) + (reading.substitution || 0);
-    if (errors === 0) return { state: "correct" as DecisionState, reason: "exact_lexical_match", reading, alias };
-    return { state: "retry_required" as DecisionState, reason: "lexical_mismatch_needs_confirmation", reading, alias };
-  }
-
-  if (mode === "targeted_pronunciation") {
     return {
       state: "retry_required" as DecisionState,
-      reason: alias.matched ? "asr_alias_requires_pronunciation_evidence" : "pronunciation_evidence_required",
+      reason: "no_transcript",
       reading,
       alias,
     };
   }
 
-  return { state: "retry_required" as DecisionState, reason: "fluency_policy_pending", reading, alias };
+  if (mode === "lexical") {
+    const errors =
+      (reading.deletion || 0)
+      + (reading.insertion || 0)
+      + (reading.substitution || 0);
+
+    if (errors === 0) {
+      return {
+        state: "correct" as DecisionState,
+        reason: "exact_lexical_match",
+        reading,
+        alias,
+      };
+    }
+
+    return {
+      state: "retry_required" as DecisionState,
+      reason: "lexical_mismatch_needs_confirmation",
+      reading,
+      alias,
+    };
+  }
+
+  if (mode === "targeted_pronunciation") {
+    return {
+      state: "retry_required" as DecisionState,
+      reason: alias.matched
+        ? "asr_alias_requires_pronunciation_evidence"
+        : "pronunciation_evidence_required",
+      reading,
+      alias,
+    };
+  }
+
+  return {
+    state: "retry_required" as DecisionState,
+    reason: "fluency_policy_pending",
+    reading,
+    alias,
+  };
 }
