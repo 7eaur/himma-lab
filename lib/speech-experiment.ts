@@ -9,24 +9,27 @@ export type TestCase = {
   text: string;
   mode: SpeechMode;
   focus: string | null;
+  proxyTargetKey?: string;
 };
 
 export const TEST_CASES: TestCase[] = [
-  { key: "haraka-ma", label: "مَ — فتحة قصيرة", text: "مَ", mode: "targeted_pronunciation", focus: "short_vowel_fatha" },
-  { key: "haraka-mi", label: "مِ — كسرة قصيرة", text: "مِ", mode: "targeted_pronunciation", focus: "short_vowel_kasra" },
-  { key: "haraka-mu", label: "مُ — ضمة قصيرة", text: "مُ", mode: "targeted_pronunciation", focus: "short_vowel_damma" },
-  { key: "sukun-m", label: "مْ — سكون", text: "مْ", mode: "targeted_pronunciation", focus: "sukun" },
-  { key: "haraka-ba", label: "بَ — فتحة قصيرة", text: "بَ", mode: "targeted_pronunciation", focus: "short_vowel_fatha" },
-  { key: "haraka-bi", label: "بِ — كسرة قصيرة", text: "بِ", mode: "targeted_pronunciation", focus: "short_vowel_kasra" },
-  { key: "haraka-bu", label: "بُ — ضمة قصيرة", text: "بُ", mode: "targeted_pronunciation", focus: "short_vowel_damma" },
-  { key: "word-sukun", label: "شَمْس — سكون", text: "شَمْس", mode: "targeted_pronunciation", focus: "sukun" },
-  { key: "word-shadda", label: "قِطَّة — شدة", text: "قِطَّة", mode: "targeted_pronunciation", focus: "shadda" },
-  { key: "word-madd", label: "بَاب — مد", text: "بَاب", mode: "targeted_pronunciation", focus: "madd" },
-  { key: "sentence-1", label: "جملة قصيرة بدون تشكيل كثيف", text: "يقرأ سالم كتابا.", mode: "lexical", focus: null },
-  { key: "sentence-2", label: "جملة قصيرة ثانية", text: "تلعب مريم بالكرة.", mode: "lexical", focus: null },
-  { key: "passage-short", label: "نص قصير", text: "ذهب سالم إلى الحديقة. رأى عصفورا فوق شجرة ثم عاد إلى البيت.", mode: "lexical", focus: null },
-  { key: "fluency-short", label: "طلاقة قصيرة", text: "ذهب خالد إلى المدرسة وقرأ كتابا مفيدا ثم عاد إلى البيت.", mode: "fluency", focus: "timed_passage" },
-];
+  { key: "haraka-ma", label: "مَ — فتحة قصيرة", text: "مَ", mode: "targeted_pronunciation", focus: "short_vowel_fatha", proxyTargetKey: "l1-r5-1" },
+  { key: "haraka-bi", label: "بِ — كسرة قصيرة", text: "بِ", mode: "targeted_pronunciation", focus: "short_vowel_kasra", proxyTargetKey: "l2-core2-2" },
+  { key: "haraka-bu", label: "بُ — ضمة قصيرة", text: "بُ", mode: "targeted_pronunciation", focus: "short_vowel_damma", proxyTargetKey: "l1-r5-2" },
+  { key: "haraka-si", label: "سِ — كسرة قصيرة", text: "سِ", mode: "targeted_pronunciation", focus: "short_vowel_kasra", proxyTargetKey: "l1-r5-3" },
+  { key: "haraka-su", label: "سُ — ضمة قصيرة", text: "سُ", mode: "targeted_pronunciation", focus: "short_vowel_damma", proxyTargetKey: "l2-core2-3" },
+  { key: "haraka-qa", label: "قَ — فتحة قصيرة", text: "قَ", mode: "targeted_pronunciation", focus: "short_vowel_fatha", proxyTargetKey: "l1-r5-4" },
+  { key: "haraka-qi", label: "قِ — كسرة قصيرة", text: "قِ", mode: "targeted_pronunciation", focus: "short_vowel_kasra", proxyTargetKey: "l2-core2-4" },
+  { key: "haraka-ra", label: "رَ — فتحة قصيرة", text: "رَ", mode: "targeted_pronunciation", focus: "short_vowel_fatha", proxyTargetKey: "l2-core2-5" },
+  { key: "haraka-ru", label: "رُ — ضمة قصيرة", text: "رُ", mode: "targeted_pronunciation", focus: "short_vowel_damma", proxyTargetKey: "l1-r5-5" },
+  { key: "word-sukun", label: "شَمْس — سكون", text: "شَمْس", mode: "targeted_pronunciation", focus: "sukun", proxyTargetKey: "pre-20" },
+  { key: "word-shadda", label: "قِطَّة — شدة", text: "قِطَّة", mode: "targeted_pronunciation", focus: "shadda", proxyTargetKey: "pre-22" },
+  { key: "word-madd", label: "بَاب — مد", text: "بَاب", mode: "targeted_pronunciation", focus: "madd", proxyTargetKey: "pre-21" },
+  { key: "sentence-1", label: "جملة قصيرة بدون تشكيل كثيف", text: "يقرأ سالم كتابا.", mode: "lexical", focus: null, proxyTargetKey: "pre-23" },
+  { key: "sentence-2", label: "جملة قصيرة ثانية", text: "تلعب مريم بالكرة.", mode: "lexical", focus: null, proxyTargetKey: "post-23" },
+  { key: "passage-short", label: "نص قصير", text: "ذهبت هند إلى الحديقة. شاهدت زهرة جميلة. سقت الزهرة بالماء، ثم عادت إلى البيت.", mode: "lexical", focus: null, proxyTargetKey: "l3-r4" },
+  { key: "fluency-short", label: "طلاقة", text: "دخل خالد مكتبة المدرسة في وقت الفسحة. بحث عن كتاب عن الحيوانات، فساعده أمين المكتبة. جلس في مكان هادئ وقرأ الكتاب، ثم أعاده إلى مكانه.", mode: "fluency", focus: "timed_passage", proxyTargetKey: "l3-core6" },
+]
 
 const TARGET_ALIASES: Record<string, string[]> = {
   "مَ": ["م", "ما", "ماء", "ma"],
