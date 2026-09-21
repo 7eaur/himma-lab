@@ -15,6 +15,13 @@ type TestCase = {
   focus: string | null;
 };
 
+type ProviderStatus = {
+  lexical: { provider: string; configured: boolean; locale: string };
+  pronunciation: { provider: string; configured: boolean; locale: string };
+  storage: { configured: boolean };
+  academicEffect: "none";
+};
+
 type AnalysisResult = {
   runId: string;
   createdAt: string;
@@ -111,6 +118,7 @@ export default function SpeechTestPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [message, setMessage] = useState("");
+  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
   const [feedbackVerdict, setFeedbackVerdict] = useState<"correct" | "incorrect" | "unclear" | "">("");
   const [observedText, setObservedText] = useState("");
   const [notes, setNotes] = useState("");
@@ -120,19 +128,36 @@ export default function SpeechTestPage() {
   const startedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/speech-test/cases", { cache: "no-store" })
-      .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload?.detail || "تعذر تحميل حالات الاختبار");
-        setCases(payload.cases || []);
-        setSelectedKey(payload.cases?.[0]?.key || "");
-      })
-      .catch((error) => setMessage(error instanceof Error ? error.message : "تعذر تحميل حالات الاختبار"));
+    const load = async () => {
+      try {
+        const [casesResponse, statusResponse] = await Promise.all([
+          fetch("/api/speech-test/cases", { cache: "no-store" }),
+          fetch("/api/speech-test/status", { cache: "no-store" }),
+        ]);
+        const casesPayload = await casesResponse.json();
+        const statusPayload = await statusResponse.json();
+        if (!casesResponse.ok) throw new Error(casesPayload?.detail || "تعذر تحميل حالات الاختبار");
+        if (!statusResponse.ok) throw new Error(statusPayload?.detail || "تعذر قراءة حالة المزود");
+        setCases(casesPayload.cases || []);
+        setSelectedKey(casesPayload.cases?.[0]?.key || "");
+        setProviderStatus(statusPayload);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "تعذر تحميل المختبر");
+      }
+    };
+    void load();
   }, []);
 
-  useEffect(() => () => {
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
-    recorderRef.current?.cancel();
+  useEffect(() => {
+    return () => {
+      recorderRef.current?.cancel();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+    };
   }, [audioUrl]);
 
   const selected = useMemo(() => cases.find((item) => item.key === selectedKey) || null, [cases, selectedKey]);
@@ -253,7 +278,14 @@ export default function SpeechTestPage() {
             <strong>النسخة التجريبية المباشرة</strong>
           </div>
         </div>
-        <div className={styles.labBadge}><TestTube2 size={17} /> Experiment · لا أثر أكاديمي</div>
+        <div className={styles.headerStatus}>
+          <div className={styles.labBadge}><TestTube2 size={17} /> Experiment · لا أثر أكاديمي</div>
+          <div className={styles.providerPills}>
+            <span data-ready={providerStatus?.lexical.configured ? "true" : "false"}>ASR {providerStatus?.lexical.configured ? "جاهز" : "غير جاهز"}</span>
+            <span data-ready={providerStatus?.pronunciation.configured ? "true" : "false"}>Pronunciation {providerStatus?.pronunciation.configured ? "جاهز" : "غير جاهز"}</span>
+            <span data-ready={providerStatus?.storage.configured ? "true" : "false"}>Storage {providerStatus?.storage.configured ? "جاهز" : "غير جاهز"}</span>
+          </div>
+        </div>
       </header>
 
       <section className={styles.layout}>
@@ -326,10 +358,29 @@ export default function SpeechTestPage() {
                   )}
                 </div>
 
+                {providerStatus && (
+                  <div className={styles.readinessNote}>
+                    {selected.mode === "targeted_pronunciation"
+                      ? (providerStatus.pronunciation.configured
+                        ? "Azure ASR وPronunciation Assessment جاهزان لهذه التجربة."
+                        : "Pronunciation Assessment غير جاهز بعد؛ لن نبدأ تجربة الحركات حتى يكتمل إعداد المزود.")
+                      : (providerStatus.lexical.configured
+                        ? "Azure ASR جاهز لتحليل القراءة النصية."
+                        : "Azure ASR غير جاهز بعد.")}
+                  </div>
+                )}
                 <button
                   className={styles.analyzeButton}
                   type="button"
-                  disabled={!audioBlob || analyzing || recording || !participantCode.trim()}
+                  disabled={
+                    !audioBlob
+                    || analyzing
+                    || recording
+                    || !participantCode.trim()
+                    || !providerStatus?.storage.configured
+                    || !providerStatus?.lexical.configured
+                    || (selected.mode === "targeted_pronunciation" && !providerStatus?.pronunciation.configured)
+                  }
                   onClick={() => void analyze()}
                 >
                   {analyzing ? "جاري تحليل الصوت..." : "حلّل التسجيل الآن"}
