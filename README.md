@@ -41,3 +41,5 @@ Every experiment stores the machine evidence in `speech_experiment_runs` and let
 Provider readiness is exposed by `/api/speech-test/status`. The pronunciation region is inferred from a standard regional `HIMMA_AZURE_SPEECH_ENDPOINT`, or can be supplied explicitly through `HIMMA_AZURE_SPEECH_REGION` / `HIMMA_AZURE_PRONUNCIATION_ENDPOINT`.
 
 Do not promote experiment thresholds into the student academic path until representative recordings have been reviewed and the decision policy is explicitly approved.
+
+<!-- preview deployment retry marker -->
