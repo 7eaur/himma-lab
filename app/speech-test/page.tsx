@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, CircleAlert, Mic, RotateCcw, Save, Square, TestTube2 } from "lucide-react";
+import { analyzePcm16Wav, blocksAnalysis, type AudioQualityEvidence } from "@/lib/audio-quality";
 import { PcmWavRecorder } from "@/lib/pcm-wav-recorder";
 import styles from "./speech-test.module.css";
 
@@ -29,6 +30,7 @@ type AnalysisResult = {
   speechMode: SpeechMode;
   pronunciationFocus: string | null;
   referenceText: string;
+  audioQuality: AudioQualityEvidence;
   asr: {
     configured: boolean;
     provider: string;
@@ -39,6 +41,20 @@ type AnalysisResult = {
     words: Array<{ text: string; startSeconds: number | null; endSeconds: number | null }>;
     requestId: string | null;
     error: string | null;
+    recognitionStatus: string | null;
+    source: "short-audio" | "fast-transcription" | "none";
+    transcriptScript: "arabic" | "non_arabic" | "empty";
+    usable: boolean;
+    snr: number | null;
+    diagnostics: {
+      primarySource: string;
+      primaryStatus: string | null;
+      primaryError: string | null;
+      fallbackSource: string | null;
+      fallbackStatus: string | null;
+      fallbackError: string | null;
+      phraseLocales: string[];
+    };
   };
   reading: {
     normalizedReference: string;
@@ -107,6 +123,29 @@ const percent01 = (value: number | null | undefined) =>
 const percent100 = (value: number | null | undefined) =>
   value == null ? "—" : `${Math.round(value * 10) / 10}%`;
 
+function qualityMessage(quality: AudioQualityEvidence) {
+  if (quality.state === "too_short") return "التسجيل قصير جدًا. أعد التسجيل واقرأ الهدف كاملًا.";
+  if (quality.state === "silence") return "لم نرصد إشارة صوتية واضحة. اقترب قليلًا من الميكروفون وأعد التسجيل.";
+  if (quality.state === "invalid") return "صيغة التسجيل غير صالحة للتحليل. أعد التسجيل.";
+  if (quality.state === "warning") {
+    if (quality.warnings.includes("audio_signal_low")) return "الصوت منخفض قليلًا، لكن يمكن تجربة التحليل. اقترب من الميكروفون إذا تكرر عدم التعرف.";
+    if (quality.warnings.includes("audio_mostly_silence")) return "التسجيل يحتوي صمتًا طويلًا. يمكن التحليل، لكن يفضل بدء القراءة بعد بدء التسجيل مباشرة.";
+    if (quality.warnings.includes("audio_may_be_clipped")) return "الصوت مرتفع جدًا في بعض اللحظات. أبعد الجهاز قليلًا إذا تكرر التشويش.";
+    return "جودة التسجيل مقبولة مع ملاحظة فنية بسيطة.";
+  }
+  return "جودة التسجيل مناسبة للإرسال.";
+}
+
+function asrErrorMessage(error: string | null) {
+  if (!error) return null;
+  if (error === "azure_non_arabic_transcript") return "أعاد Azure نصًا بكتابة غير عربية؛ تم استبعاده من C/D/I/S بدل اعتباره قراءة عربية.";
+  if (error === "azure_no_match") return "رصد Azure صوتًا لكنه لم يطابق كلمات عربية من اللغة المستهدفة.";
+  if (error === "azure_initial_silence_timeout") return "بدأ التسجيل بصمت طويل ولم يبدأ التعرف.";
+  if (error === "azure_babble_timeout") return "غلبت الضوضاء على بداية التسجيل ولم يتمكن Azure من بدء التعرف.";
+  if (error === "azure_no_transcript") return "اكتمل الطلب لكن Azure لم يرجع نصًا.";
+  return `حالة المزود: ${error}`;
+}
+
 export default function SpeechTestPage() {
   const [cases, setCases] = useState<TestCase[]>([]);
   const [selectedKey, setSelectedKey] = useState("");
@@ -114,6 +153,7 @@ export default function SpeechTestPage() {
   const [recording, setRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioQuality, setAudioQuality] = useState<AudioQualityEvidence | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -178,6 +218,7 @@ export default function SpeechTestPage() {
   const replaceAudio = (blob: Blob | null) => {
     resetResult();
     setAudioBlob(blob);
+    if (!blob) setAudioQuality(null);
     setAudioUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
       return blob ? URL.createObjectURL(blob) : null;
@@ -208,9 +249,12 @@ export default function SpeechTestPage() {
       const blob = await recorder.stop();
       const startedAt = startedAtRef.current;
       setDurationMs(startedAt == null ? null : Math.max(0, performance.now() - startedAt));
+      const quality = analyzePcm16Wav(new Uint8Array(await blob.arrayBuffer()));
+      setAudioQuality(quality);
       replaceAudio(blob);
     } catch {
       recorder.cancel();
+      setAudioQuality(null);
       setMessage("تعذر تجهيز التسجيل. أعد التسجيل.");
     } finally {
       recorderRef.current = null;
@@ -233,7 +277,10 @@ export default function SpeechTestPage() {
 
       const response = await fetch("/api/speech-test/analyze", { method: "POST", body: form });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.detail || "تعذر تحليل التسجيل");
+      if (!response.ok) {
+        if (payload?.audioQuality) setAudioQuality(payload.audioQuality);
+        throw new Error(payload?.detail || "تعذر تحليل التسجيل");
+      }
       setResult(payload);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "تعذر تحليل التسجيل");
@@ -267,6 +314,8 @@ export default function SpeechTestPage() {
       setSavingFeedback(false);
     }
   };
+
+  const audioBlocked = audioQuality ? blocksAnalysis(audioQuality) : false;
 
   return (
     <main className={styles.page}>
@@ -302,7 +351,7 @@ export default function SpeechTestPage() {
                   type="button"
                   key={item.key}
                   className={item.key === selectedKey ? styles.activeCase : ""}
-                  onClick={() => { setSelectedKey(item.key); replaceAudio(null); setMessage(""); }}
+                  onClick={() => { setSelectedKey(item.key); replaceAudio(null); setDurationMs(null); setMessage(""); }}
                 >
                   <strong>{item.label}</strong>
                   <small>{item.text}</small>
@@ -358,6 +407,17 @@ export default function SpeechTestPage() {
                   )}
                 </div>
 
+                {audioQuality && (
+                  <div className={styles.qualityNote} data-state={audioQuality.state}>
+                    <strong>{qualityMessage(audioQuality)}</strong>
+                    <span>
+                      RMS {audioQuality.rms == null ? "—" : audioQuality.rms.toFixed(4)}
+                      {" · "}
+                      صمت {audioQuality.silenceRatio == null ? "—" : `${Math.round(audioQuality.silenceRatio * 100)}%`}
+                    </span>
+                  </div>
+                )}
+
                 {providerStatus && (
                   <div className={styles.readinessNote}>
                     {selected.mode === "targeted_pronunciation"
@@ -376,6 +436,7 @@ export default function SpeechTestPage() {
                     !audioBlob
                     || analyzing
                     || recording
+                    || audioBlocked
                     || !participantCode.trim()
                     || !providerStatus?.storage.configured
                     || !providerStatus?.lexical.configured
@@ -414,15 +475,18 @@ export default function SpeechTestPage() {
                     <article className={styles.evidenceCard}>
                       <span>Azure ASR</span>
                       <h3>{result.asr.transcript || "لم يرجع نصًا"}</h3>
+                      <p>المسار: {result.asr.source} · الحالة: {result.asr.recognitionStatus || "—"}</p>
                       <p>المرجع بعد التطبيع: {result.reading.normalizedReference || "—"}</p>
                       <p>الناتج بعد التطبيع: {result.reading.normalizedTranscript || "—"}</p>
-                      {result.asr.error && <b>خطأ المزود: {result.asr.error}</b>}
+                      {result.asr.snr != null && <p>SNR: {result.asr.snr.toFixed(1)} dB</p>}
+                      {asrErrorMessage(result.asr.error) && <b>{asrErrorMessage(result.asr.error)}</b>}
                     </article>
 
                     <article className={styles.evidenceCard}>
-                      <span>Alias Evidence</span>
+                      <span>Audio / Alias Evidence</span>
                       <h3>{result.alias.matched ? "تم رصد تهجئة بديلة من ASR" : "لا يوجد Alias مطابق"}</h3>
                       <p>{result.alias.matchedAlias || "—"}</p>
+                      <p>جودة الصوت: {qualityMessage(result.audioQuality)}</p>
                       <small>الـAlias لا يعطي نجاحًا؛ يمنع الرفض من ASR وحده.</small>
                     </article>
                   </div>
