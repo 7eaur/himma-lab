@@ -47,7 +47,9 @@ type RawContent = {
   sourceDocument: string;
   academicEffect: "none";
   academicAuthority: "human_supervisor";
-  cases: Array<Omit<TestCase, "label" | "mode"> & { speechMode: SpeechMode }>;
+  // Alias candidates are an experiment-only overlay and are intentionally
+  // absent from the approved Himma V2 62-question content bank.
+  cases: Array<Omit<TestCase, "label" | "mode" | "aliasCandidates"> & { speechMode: SpeechMode }>;
 };
 
 const SOURCE = rawContent as RawContent;
