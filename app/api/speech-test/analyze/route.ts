@@ -13,10 +13,8 @@ function finiteNumber(value: FormDataEntryValue | null) {
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
-function audioQualityMessage(state: string) {
-  if (state === "too_short") return "التسجيل قصير جدًا. أعد التسجيل واقرأ الهدف كاملًا.";
-  if (state === "silence") return "لم نرصد إشارة صوتية واضحة. اقترب قليلًا من الميكروفون وأعد التسجيل.";
-  return "صيغة التسجيل غير صالحة للتحليل. أعد التسجيل.";
+function audioQualityMessage() {
+  return "ملف التسجيل غير صالح تقنيًا للتحليل. أعد التسجيل.";
 }
 
 export async function POST(request: Request) {
@@ -31,7 +29,7 @@ export async function POST(request: Request) {
 
   if (!participantCode) return NextResponse.json({ detail: "كود التجربة مطلوب." }, { status: 422 });
   if (!(audio instanceof Blob) || audio.size < 800) {
-    return NextResponse.json({ detail: "التسجيل فارغ أو قصير جدًا." }, { status: 422 });
+    return NextResponse.json({ detail: "لم يصل ملف صوتي قابل للقراءة." }, { status: 422 });
   }
 
   const testCase = TEST_CASES.find((item) => item.key === testKey);
@@ -51,7 +49,7 @@ export async function POST(request: Request) {
   if (blocksAnalysis(audioQuality)) {
     return NextResponse.json(
       {
-        detail: audioQualityMessage(audioQuality.state),
+        detail: audioQualityMessage(),
         code: `audio_quality_${audioQuality.state}`,
         audioQuality,
       },

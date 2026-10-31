@@ -18,6 +18,8 @@ jobs:
         run: npm install
       - name: Voice corpus contract
         run: npm run validate:voice-cases
+      - name: Audio preflight regression
+        run: npm run test:audio-preflight
       - name: TypeScript
         run: npm run typecheck
       - name: ESLint

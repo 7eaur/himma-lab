@@ -14,12 +14,15 @@ export type AudioQualityEvidence = {
   warnings: string[];
 };
 
-const MIN_DURATION_MS = 550;
-const SILENCE_RMS = 0.0025;
-const SILENCE_PEAK = 0.01;
+// Audio metrics are diagnostic only. These are NOT educational or speech-detection
+// thresholds, and low amplitude / long pauses must never prevent Azure analysis.
+const BRIEF_SAMPLE_MS = 550;
 const LOW_SIGNAL_RMS = 0.01;
+const LOW_PEAK = 0.01;
 const FRAME_MS = 20;
-const FRAME_SILENCE_RMS = 0.006;
+// "silenceRatio" is the historical database field: fraction of frames below
+// this fixed energy threshold, NOT a reliable proportion of actual silence.
+const FRAME_LOW_ENERGY_RMS = 0.006;
 
 function invalid(warning: string): AudioQualityEvidence {
   return {
@@ -122,7 +125,7 @@ export function analyzePcm16Wav(input: ArrayBuffer | Uint8Array): AudioQualityEv
       frameSumSquares += sample * sample;
     }
     const frameRms = Math.sqrt(frameSumSquares / Math.max(1, end - start));
-    if (frameRms < FRAME_SILENCE_RMS) silentFrames += 1;
+    if (frameRms < FRAME_LOW_ENERGY_RMS) silentFrames += 1;
     totalFrames += 1;
   }
 
@@ -130,23 +133,9 @@ export function analyzePcm16Wav(input: ArrayBuffer | Uint8Array): AudioQualityEv
   const activeRatio = 1 - silenceRatio;
   const warnings: string[] = [];
 
-  if (durationMs < MIN_DURATION_MS) {
-    return {
-      valid: true,
-      sampleRate,
-      channels,
-      bitsPerSample,
-      durationMs,
-      rms,
-      peak,
-      silenceRatio,
-      activeRatio,
-      state: "too_short",
-      warnings: ["audio_too_short"],
-    };
-  }
-
-  if (rms < SILENCE_RMS || peak < SILENCE_PEAK) {
+  // Only a completely zero-valued PCM stream is known to have no digital
+  // signal. Even this remains a reviewable lab sample, never an academic fail.
+  if (peak === 0) {
     return {
       valid: true,
       sampleRate,
@@ -158,12 +147,13 @@ export function analyzePcm16Wav(input: ArrayBuffer | Uint8Array): AudioQualityEv
       silenceRatio,
       activeRatio,
       state: "silence",
-      warnings: ["audio_signal_not_detected"],
+      warnings: ["audio_digital_silence"],
     };
   }
 
-  if (rms < LOW_SIGNAL_RMS) warnings.push("audio_signal_low");
-  if (silenceRatio > 0.9) warnings.push("audio_mostly_silence");
+  if (durationMs < BRIEF_SAMPLE_MS) warnings.push("audio_brief_sample");
+  if (rms < LOW_SIGNAL_RMS || peak < LOW_PEAK) warnings.push("audio_signal_low");
+  if (silenceRatio > 0.9) warnings.push("audio_mostly_low_energy");
   if (peak > 0.995) warnings.push("audio_may_be_clipped");
 
   return {
@@ -181,6 +171,9 @@ export function analyzePcm16Wav(input: ArrayBuffer | Uint8Array): AudioQualityEv
   };
 }
 
+// A structurally valid WAV can contain a quiet voice, a very short vowel,
+// or a long delay before speech. Let Azure and the human reviewer assess it.
+// Only malformed/unreadable PCM must be blocked.
 export function blocksAnalysis(quality: AudioQualityEvidence) {
-  return quality.state === "invalid" || quality.state === "too_short" || quality.state === "silence";
+  return !quality.valid || quality.state === "invalid";
 }

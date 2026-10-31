@@ -128,16 +128,16 @@ const percent100 = (value: number | null | undefined) =>
   value == null ? "—" : `${Math.round(value * 10) / 10}%`;
 
 function qualityMessage(quality: AudioQualityEvidence) {
-  if (quality.state === "too_short") return "التسجيل قصير جدًا. أعد التسجيل واقرأ الهدف كاملًا.";
-  if (quality.state === "silence") return "لم نرصد إشارة صوتية واضحة. اقترب قليلًا من الميكروفون وأعد التسجيل.";
-  if (quality.state === "invalid") return "صيغة التسجيل غير صالحة للتحليل. أعد التسجيل.";
-  if (quality.state === "warning") {
-    if (quality.warnings.includes("audio_signal_low")) return "الصوت منخفض قليلًا، لكن يمكن تجربة التحليل. اقترب من الميكروفون إذا تكرر عدم التعرف.";
-    if (quality.warnings.includes("audio_mostly_silence")) return "التسجيل يحتوي صمتًا طويلًا. يمكن التحليل، لكن يفضل بدء القراءة بعد بدء التسجيل مباشرة.";
-    if (quality.warnings.includes("audio_may_be_clipped")) return "الصوت مرتفع جدًا في بعض اللحظات. أبعد الجهاز قليلًا إذا تكرر التشويش.";
-    return "جودة التسجيل مقبولة مع ملاحظة فنية بسيطة.";
+  if (quality.state === "invalid") return "ملف الصوت غير صالح تقنيًا؛ يُرجى إعادة التسجيل.";
+  if (quality.state === "silence") return "الموجة الصوتية كلها أصفار. قد يكون الميكروفون لا يسجل؛ يمكنك إعادته أو إرساله للتحليل التجريبي.";
+  if (quality.state === "too_short" || quality.warnings.includes("audio_brief_sample")) {
+    return "التسجيل قصير، وهذا متوقع عند قراءة حرف. يمكنك إرساله للتحليل دون إعادة إجبارية.";
   }
-  return "جودة التسجيل مناسبة للإرسال.";
+  if (quality.warnings.includes("audio_signal_low") || quality.warnings.includes("audio_mostly_low_energy") || quality.warnings.includes("audio_mostly_silence")) {
+    return "الصوت منخفض وفق القياس التقني، وقد توجد قراءة صحيحة رغم ذلك. يمكنك تحليله أو إعادة التسجيل اختياريًا.";
+  }
+  if (quality.warnings.includes("audio_may_be_clipped")) return "بعض الإشارات مرتفعة جدًا. يمكنك التحليل أو إعادة التسجيل إذا سُمِع تشويش.";
+  return "ملف الصوت جاهز للتحليل.";
 }
 
 function asrErrorMessage(error: string | null) {
@@ -392,12 +392,11 @@ export default function SpeechTestPage() {
                 </div>
 
                 <div className={styles.reference}>{selected.text}</div>
-                <p className={styles.hint}>
-                  <strong>{selected.prompt}</strong>
-                  {" "}
+                <p className={styles.hint}><strong>{selected.prompt}</strong></p>
+                <p className={styles.hint} dir="rtl">
                   {selected.pronunciationAssessment
-                    ? "سنحفظ ASR وPronunciation Assessment معًا، دون قرار أكاديمي آلي."
-                    : "سنقارن الكلمات بالهدف الظاهر، دون فرض تشكيل غير ظاهر للطفل."}
+                    ? "سيجمع المختبر أدلة التعرف الآلي وتقييم النطق دون إصدار حكم أكاديمي."
+                    : "سنقارن الكلمات بالنص الظاهر دون فرض حركات غير معروضة للطفل."}
                 </p>
 
                 <div className={styles.recordZone}>
@@ -426,7 +425,7 @@ export default function SpeechTestPage() {
                     <span>
                       RMS {audioQuality.rms == null ? "—" : audioQuality.rms.toFixed(4)}
                       {" · "}
-                      صمت {audioQuality.silenceRatio == null ? "—" : `${Math.round(audioQuality.silenceRatio * 100)}%`}
+                      إطارات منخفضة الشدة {audioQuality.silenceRatio == null ? "—" : `${Math.round(audioQuality.silenceRatio * 100)}%`}
                     </span>
                   </div>
                 )}
@@ -499,7 +498,7 @@ export default function SpeechTestPage() {
                       <span>Audio / Alias Evidence</span>
                       <h3>{result.alias.matched ? "تم رصد تهجئة بديلة من ASR" : "لا يوجد Alias مطابق"}</h3>
                       <p>{result.alias.matchedAlias || "—"}</p>
-                      <p>جودة الصوت: {qualityMessage(result.audioQuality)}</p>
+                      <p>فحص الصوت: {qualityMessage(result.audioQuality)}</p>
                       <small>الـAlias لا يعطي نجاحًا؛ يمنع الرفض من ASR وحده.</small>
                     </article>
                   </div>
