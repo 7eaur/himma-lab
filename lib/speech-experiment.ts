@@ -1,5 +1,7 @@
 import rawContent from "@/data/himma-v2-voice-cases.json";
-import { analyzeReading, normalizeArabic } from "@/lib/analysis";
+import rawLetterAliases from "@/data/himma-v2-targeted-letter-asr-aliases.json";
+import { analyzeReading } from "@/lib/analysis";
+import { matchTargetedLetterAlias, type LetterAliasCandidate } from "@/lib/targeted-letter-alias";
 
 export type SpeechMode = "targeted_pronunciation" | "lexical" | "fluency";
 export type DecisionState = "correct" | "incorrect" | "retry_required";
@@ -31,6 +33,7 @@ export type TestCase = {
   skillGroup: string | null;
   errorFocus: string | null;
   aliases: string[];
+  aliasCandidates: LetterAliasCandidate[];
   displayScoringPolicy: DisplayScoringPolicy;
 };
 
@@ -60,34 +63,29 @@ export const SPEECH_SOURCE = {
   academicAuthority: SOURCE.academicAuthority,
 } as const;
 
-export const TEST_CASES: TestCase[] = SOURCE.cases.map((item) => ({
-  ...item,
-  label: `${item.sequence}. ${item.sourceQuestionId}`,
-  mode: item.speechMode,
-}));
+const LETTER_ALIAS_CASES = (rawLetterAliases as unknown as {
+  cases: Record<string, { reference: string; variants: LetterAliasCandidate[] }>;
+}).cases;
 
-function normalized(value: string) {
-  return normalizeArabic(value).toLocaleLowerCase("ar");
-}
-
-export function aliasEvidence(transcript: string | null, aliases: string[]) {
-  if (!transcript?.trim() || aliases.length === 0) {
-    return { matched: false, matchedAlias: null, effect: null };
-  }
-
-  const observed = normalized(transcript);
-  const matchedAlias = aliases.find((alias) => normalized(alias) === observed) || null;
-
+export const TEST_CASES: TestCase[] = SOURCE.cases.map((item) => {
+  const letterEntry = LETTER_ALIAS_CASES[item.sourceQuestionId];
   return {
-    matched: Boolean(matchedAlias),
-    matchedAlias,
-    effect: matchedAlias ? "do_not_fail_from_asr_only" : null,
+    ...item,
+    label: `${item.sequence}. ${item.sourceQuestionId}`,
+    mode: item.speechMode,
+    // Separate experiment-only hypotheses. Never mutate the canonical 62
+    // questions or reinterpret these ASR spellings as correct spoken answers.
+    aliasCandidates: letterEntry?.reference === item.text ? letterEntry.variants : [],
   };
-}
+});
 
 export function decisionPreview(testCase: TestCase, transcript: string | null) {
   const reading = analyzeReading(testCase.text, transcript);
-  const alias = aliasEvidence(transcript, testCase.aliases);
+  const alias = matchTargetedLetterAlias(
+    testCase.mode === "targeted_pronunciation" ? transcript : null,
+    testCase.text,
+    testCase.mode === "targeted_pronunciation" ? testCase.aliasCandidates : [],
+  );
 
   if (!transcript?.trim()) {
     return {

@@ -94,7 +94,9 @@ export async function POST(request: Request) {
     return {
       ...preview,
       state: "retry_required" as const,
-      reason: "pronunciation_evidence_pending_calibration",
+      reason: preview.alias.matched
+        ? "asr_spelling_variant_requires_human_vowel_verification"
+        : "pronunciation_evidence_pending_calibration",
     };
   })();
 

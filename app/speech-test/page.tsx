@@ -80,7 +80,10 @@ type AnalysisResult = {
   alias: {
     matched: boolean;
     matchedAlias: string | null;
+    matchKind: "bare_letter" | "long_vowel_spelling" | "latin_transliteration" | "exact_vowelled_text" | null;
     effect: string | null;
+    vowelVerified: false;
+    warning: string | null;
   };
   pronunciation: null | {
     configured: boolean;
@@ -505,10 +508,19 @@ export default function SpeechTestPage() {
 
                     <article className={styles.evidenceCard}>
                       <span>Audio / Alias Evidence</span>
-                      <h3>{result.alias.matched ? "تم رصد تهجئة بديلة من ASR" : "لا يوجد Alias مطابق"}</h3>
-                      <p>{result.alias.matchedAlias || "—"}</p>
+                      <h3>{result.alias.matched ? "تطابق تفريغ محتمل من Azure" : "لا يوجد بديل مطابق للتفريغ"}</h3>
+                      <p>التفريغ المحتمل: {result.alias.matchedAlias || "—"}</p>
+                      {result.alias.matched && (
+                        <p>
+                          {result.alias.matchKind === "long_vowel_spelling"
+                            ? "قد يكتب Azure الحركة القصيرة كحرف مد. لا يمكن الجزم من الكتابة إن كان الطفل مدّ الصوت فعلًا."
+                            : result.alias.matchKind === "bare_letter"
+                              ? "كتب Azure الحرف دون حركة؛ نوع الحركة غير محسوم."
+                              : "مطابقة كتابية محتملة لا تثبت دقة نطق الحركة."}
+                        </p>
+                      )}
                       <p>فحص الصوت: {qualityMessage(result.audioQuality)}</p>
-                      <small>الـAlias لا يعطي نجاحًا؛ يمنع الرفض من ASR وحده.</small>
+                      <small>البدائل لا تعطي نجاحًا تلقائيًا ولا تصحح أخطاء الحركات؛ تبقى أدلة للمراجعة البشرية.</small>
                     </article>
                   </div>
 

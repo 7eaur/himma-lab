@@ -22,6 +22,8 @@ jobs:
         run: npm run test:audio-preflight
       - name: Speech feedback contract
         run: npm run test:feedback-review
+      - name: Targeted letter alias contract
+        run: npm run test:letter-aliases
       - name: TypeScript
         run: npm run typecheck
       - name: ESLint
