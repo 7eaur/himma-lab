@@ -164,6 +164,9 @@ export default function SpeechTestPage() {
   const [message, setMessage] = useState("");
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
   const [feedbackVerdict, setFeedbackVerdict] = useState<"correct" | "incorrect" | "unclear" | "">("");
+  const [providerVerdict, setProviderVerdict] = useState<"accurate" | "inaccurate" | "unclear" | "">("");
+  const [providerObservedText, setProviderObservedText] = useState("");
+  const [providerNotes, setProviderNotes] = useState("");
   const [observedText, setObservedText] = useState("");
   const [notes, setNotes] = useState("");
   const [savingFeedback, setSavingFeedback] = useState(false);
@@ -223,6 +226,9 @@ export default function SpeechTestPage() {
   const resetResult = () => {
     setResult(null);
     setFeedbackVerdict("");
+    setProviderVerdict("");
+    setProviderObservedText("");
+    setProviderNotes("");
     setObservedText("");
     setNotes("");
     setFeedbackSaved(false);
@@ -303,7 +309,7 @@ export default function SpeechTestPage() {
   };
 
   const saveFeedback = async () => {
-    if (!result || !feedbackVerdict) return;
+    if (!result || (!feedbackVerdict && !providerVerdict)) return;
     setSavingFeedback(true);
     setMessage("");
     try {
@@ -313,9 +319,12 @@ export default function SpeechTestPage() {
         body: JSON.stringify({
           participantCode: participantCode.trim().toUpperCase(),
           runId: result.runId,
-          verdict: feedbackVerdict,
+          verdict: feedbackVerdict || undefined,
           observedText,
           notes,
+          providerVerdict: providerVerdict || undefined,
+          providerObservedText: providerVerdict === "inaccurate" ? providerObservedText : "",
+          providerNotes,
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -554,24 +563,53 @@ export default function SpeechTestPage() {
 
                   <article className={styles.feedbackCard}>
                     <div>
-                      <span>تقييمك أنت لهذه النتيجة</span>
-                      <h3>كيف كان نطق التسجيل فعليًا؟</h3>
+                      <span>مراجعة مستقلة لكل تجربة · لا أثر أكاديمي</span>
+                      <h3>قيّم تحليل المزود ونطق الطفل كلًّا على حدة</h3>
                     </div>
-                    <div className={styles.verdictButtons}>
-                      <button className={feedbackVerdict === "correct" ? styles.selectedGood : ""} onClick={() => setFeedbackVerdict("correct")} type="button">النطق صحيح</button>
-                      <button className={feedbackVerdict === "incorrect" ? styles.selectedBad : ""} onClick={() => setFeedbackVerdict("incorrect")} type="button">النطق خطأ</button>
-                      <button className={feedbackVerdict === "unclear" ? styles.selectedNeutral : ""} onClick={() => setFeedbackVerdict("unclear")} type="button">غير واضح</button>
+                    <div className={styles.reviewGroup}>
+                      <strong className={styles.reviewHeading}>أولًا: هل تحليل Azure صحيح؟</strong>
+                      <p className={styles.reviewExplanation}>
+                        استمع إلى تسجيلك وقارن ما فهمه Azure بما نُطق فعلًا. هذه الموافقة لا تعني أن الطفل قرأ الهدف صحيحًا.
+                      </p>
+                      <div className={styles.providerReviewEvidence}>
+                        <span>نص Azure: <b dir="auto">{result.asr.transcript || "لم يتعرف على نص"}</b></span>
+                        {result.pronunciation && <span>تقييم النطق: <b>{percent100(result.pronunciation.pronunciationScore)}</b></span>}
+                      </div>
+                      <div className={styles.verdictButtons}>
+                        <button aria-pressed={providerVerdict === "accurate"} className={providerVerdict === "accurate" ? styles.selectedGood : ""} onClick={() => { setProviderVerdict("accurate"); setFeedbackSaved(false); }} type="button">نعم، تحليل المزود صحيح</button>
+                        <button aria-pressed={providerVerdict === "inaccurate"} className={providerVerdict === "inaccurate" ? styles.selectedBad : ""} onClick={() => { setProviderVerdict("inaccurate"); setFeedbackSaved(false); }} type="button">لا، تحليل المزود غير صحيح</button>
+                        <button aria-pressed={providerVerdict === "unclear"} className={providerVerdict === "unclear" ? styles.selectedNeutral : ""} onClick={() => { setProviderVerdict("unclear"); setFeedbackSaved(false); }} type="button">لا أستطيع الحكم</button>
+                      </div>
+                      {providerVerdict === "inaccurate" && (
+                        <label>
+                          <span>ماذا قيل فعليًا؟ (اختياري)</span>
+                          <input value={providerObservedText} onChange={(event) => { setProviderObservedText(event.target.value); setFeedbackSaved(false); }} placeholder="اكتب ما سمعته بدل النص الذي أعاده Azure" maxLength={500} />
+                        </label>
+                      )}
+                      <label>
+                        <span>ملاحظات تحليل المزود (اختياري)</span>
+                        <textarea value={providerNotes} onChange={(event) => { setProviderNotes(event.target.value); setFeedbackSaved(false); }} placeholder="مثال: النص صحيح لكن تقييم النطق غير منطقي، أو فاتته كلمة..." maxLength={1500} />
+                      </label>
                     </div>
-                    <label>
-                      <span>ماذا سمعت؟ (اختياري)</span>
-                      <input value={observedText} onChange={(event) => setObservedText(event.target.value)} placeholder="مثال: ما بدل مَ" />
-                    </label>
-                    <label>
-                      <span>ملاحظتك</span>
-                      <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="هل ASR أخطأ؟ هل درجة النطق تبدو منطقية؟ أي ملاحظة مفيدة..." />
-                    </label>
-                    <button className={styles.saveFeedback} disabled={!feedbackVerdict || savingFeedback || feedbackSaved} onClick={() => void saveFeedback()} type="button">
-                      {feedbackSaved ? <><CheckCircle2 size={18}/> تم حفظ تقييمك</> : <><Save size={18}/> {savingFeedback ? "جاري الحفظ..." : "احفظ التقييم"}</>}
+                    <div className={styles.reviewGroup}>
+                      <strong className={styles.reviewHeading}>ثانيًا: هل نطق الطفل صحيح؟ (تقييم مستقل)</strong>
+                      <p className={styles.reviewExplanation}>قارن ما سمعت بالنص المعروض، بصرف النظر عن نتيجة Azure. يمكن ترك هذا التقييم فارغًا.</p>
+                      <div className={styles.verdictButtons}>
+                        <button aria-pressed={feedbackVerdict === "correct"} className={feedbackVerdict === "correct" ? styles.selectedGood : ""} onClick={() => { setFeedbackVerdict("correct"); setFeedbackSaved(false); }} type="button">نطق الطفل صحيح</button>
+                        <button aria-pressed={feedbackVerdict === "incorrect"} className={feedbackVerdict === "incorrect" ? styles.selectedBad : ""} onClick={() => { setFeedbackVerdict("incorrect"); setFeedbackSaved(false); }} type="button">نطق الطفل خطأ</button>
+                        <button aria-pressed={feedbackVerdict === "unclear"} className={feedbackVerdict === "unclear" ? styles.selectedNeutral : ""} onClick={() => { setFeedbackVerdict("unclear"); setFeedbackSaved(false); }} type="button">نطق الطفل غير واضح</button>
+                      </div>
+                      <label>
+                        <span>ما الذي نطقه الطفل؟ (اختياري)</span>
+                        <input value={observedText} onChange={(event) => { setObservedText(event.target.value); setFeedbackSaved(false); }} placeholder="مثال: مِ بدل مَ" maxLength={500} />
+                      </label>
+                      <label>
+                        <span>ملاحظتك على نطق الطفل (اختياري)</span>
+                        <textarea value={notes} onChange={(event) => { setNotes(event.target.value); setFeedbackSaved(false); }} placeholder="ملاحظة تربوية أو صوتية عن النطق نفسه" maxLength={1500} />
+                      </label>
+                    </div>
+                    <button className={styles.saveFeedback} disabled={(!feedbackVerdict && !providerVerdict) || savingFeedback || feedbackSaved} onClick={() => void saveFeedback()} type="button">
+                      {feedbackSaved ? <><CheckCircle2 size={18}/> حُفظ تقييم التجربة</> : <><Save size={18}/> {savingFeedback ? "جاري حفظ التقييمين..." : "احفظ التقييم المحدد"}</>}
                     </button>
                   </article>
 

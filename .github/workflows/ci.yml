@@ -20,6 +20,8 @@ jobs:
         run: npm run validate:voice-cases
       - name: Audio preflight regression
         run: npm run test:audio-preflight
+      - name: Speech feedback contract
+        run: npm run test:feedback-review
       - name: TypeScript
         run: npm run typecheck
       - name: ESLint

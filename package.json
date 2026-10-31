@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "validate:voice-cases": "node scripts/validate-v2-voice-cases.mjs",
-    "test:audio-preflight": "node --experimental-strip-types scripts/test-audio-quality.mjs"
+    "test:audio-preflight": "node --experimental-strip-types scripts/test-audio-quality.mjs",
+    "test:feedback-review": "node --experimental-strip-types scripts/test-speech-feedback.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
