@@ -1,51 +1,80 @@
+import rawContent from "@/data/himma-v2-voice-cases.json";
 import { analyzeReading, normalizeArabic } from "@/lib/analysis";
 
 export type SpeechMode = "targeted_pronunciation" | "lexical" | "fluency";
 export type DecisionState = "correct" | "incorrect" | "retry_required";
 
+export type DisplayScoringPolicy = {
+  displayDiacriticsPresent: boolean;
+  wordIdentityRequired: boolean;
+  gradeOnlyExplicitlyIndicatedVowels: boolean;
+  allowValidReadingsOfUnvowelledText: boolean;
+  doNotPenalizeUnshownCaseEndings: boolean;
+  academicAuthority: string;
+};
+
 export type TestCase = {
+  sequence: number;
   key: string;
+  sourceQuestionId: string;
+  group: string;
+  groupLabel: string;
+  ownerId: string | null;
+  role: string;
+  prompt: string;
   label: string;
   text: string;
+  readingReference: string;
   mode: SpeechMode;
+  pronunciationAssessment: boolean;
   focus: string | null;
+  skillGroup: string | null;
+  errorFocus: string | null;
+  aliases: string[];
+  displayScoringPolicy: DisplayScoringPolicy;
 };
 
-export const TEST_CASES: TestCase[] = [
-  { key: "haraka-ma", label: "مَ — فتحة قصيرة", text: "مَ", mode: "targeted_pronunciation", focus: "short_vowel_fatha" },
-  { key: "haraka-mi", label: "مِ — كسرة قصيرة", text: "مِ", mode: "targeted_pronunciation", focus: "short_vowel_kasra" },
-  { key: "haraka-mu", label: "مُ — ضمة قصيرة", text: "مُ", mode: "targeted_pronunciation", focus: "short_vowel_damma" },
-  { key: "haraka-ba", label: "بَ — فتحة قصيرة", text: "بَ", mode: "targeted_pronunciation", focus: "short_vowel_fatha" },
-  { key: "haraka-bi", label: "بِ — كسرة قصيرة", text: "بِ", mode: "targeted_pronunciation", focus: "short_vowel_kasra" },
-  { key: "haraka-bu", label: "بُ — ضمة قصيرة", text: "بُ", mode: "targeted_pronunciation", focus: "short_vowel_damma" },
-  { key: "word-sukun", label: "شَمْس — سكون", text: "شَمْس", mode: "targeted_pronunciation", focus: "sukun" },
-  { key: "word-shadda", label: "قِطَّة — شدة", text: "قِطَّة", mode: "targeted_pronunciation", focus: "shadda" },
-  { key: "word-madd", label: "بَاب — مد", text: "بَاب", mode: "targeted_pronunciation", focus: "madd" },
-  { key: "sentence-1", label: "جملة قصيرة بدون تشكيل كثيف", text: "يقرأ سالم كتابا.", mode: "lexical", focus: null },
-  { key: "sentence-2", label: "جملة قصيرة ثانية", text: "تلعب مريم بالكرة.", mode: "lexical", focus: null },
-  { key: "passage-short", label: "نص قصير", text: "ذهب سالم إلى الحديقة. رأى عصفورا فوق شجرة ثم عاد إلى البيت.", mode: "lexical", focus: null },
-  { key: "fluency-short", label: "طلاقة قصيرة", text: "دخل خالد مكتبة المدرسة في وقت الفسحة. بحث عن كتاب عن الحيوانات، فساعده أمين المكتبة. جلس في مكان هادئ وقرأ الكتاب، ثم أعاده إلى مكانه.", mode: "fluency", focus: "timed_passage" },
-];
-
-const TARGET_ALIASES: Record<string, string[]> = {
-  "مَ": ["م", "ما", "ماء", "ma"],
-  "مِ": ["م", "مي", "mi"],
-  "مُ": ["م", "مو", "mu"],
-  "بَ": ["ب", "با", "باء", "ba"],
-  "بِ": ["ب", "بي", "bi"],
-  "بُ": ["ب", "بو", "bu"],
+type RawContent = {
+  schemaVersion: string;
+  contentVersion: string;
+  sourceRepository: string;
+  sourceBranch: string;
+  sourceHead: string;
+  sourceContentCommit: string;
+  sourceDocument: string;
+  academicEffect: "none";
+  academicAuthority: "human_supervisor";
+  cases: Array<Omit<TestCase, "label" | "mode"> & { speechMode: SpeechMode }>;
 };
+
+const SOURCE = rawContent as RawContent;
+
+export const SPEECH_CONTENT_VERSION = SOURCE.contentVersion;
+export const SPEECH_SOURCE = {
+  repository: SOURCE.sourceRepository,
+  branch: SOURCE.sourceBranch,
+  head: SOURCE.sourceHead,
+  contentCommit: SOURCE.sourceContentCommit,
+  document: SOURCE.sourceDocument,
+  academicEffect: SOURCE.academicEffect,
+  academicAuthority: SOURCE.academicAuthority,
+} as const;
+
+export const TEST_CASES: TestCase[] = SOURCE.cases.map((item) => ({
+  ...item,
+  label: `${item.sequence}. ${item.sourceQuestionId}`,
+  mode: item.speechMode,
+}));
 
 function normalized(value: string) {
   return normalizeArabic(value).toLocaleLowerCase("ar");
 }
 
-export function aliasEvidence(referenceText: string, transcript: string | null) {
-  if (!transcript?.trim()) {
+export function aliasEvidence(transcript: string | null, aliases: string[]) {
+  if (!transcript?.trim() || aliases.length === 0) {
     return { matched: false, matchedAlias: null, effect: null };
   }
 
-  const aliases = TARGET_ALIASES[referenceText.normalize("NFC")] || [];
   const observed = normalized(transcript);
   const matchedAlias = aliases.find((alias) => normalized(alias) === observed) || null;
 
@@ -56,9 +85,9 @@ export function aliasEvidence(referenceText: string, transcript: string | null) 
   };
 }
 
-export function decisionPreview(mode: SpeechMode, referenceText: string, transcript: string | null) {
-  const reading = analyzeReading(referenceText, transcript);
-  const alias = aliasEvidence(referenceText, transcript);
+export function decisionPreview(testCase: TestCase, transcript: string | null) {
+  const reading = analyzeReading(testCase.text, transcript);
+  const alias = aliasEvidence(transcript, testCase.aliases);
 
   if (!transcript?.trim()) {
     return {
@@ -69,7 +98,18 @@ export function decisionPreview(mode: SpeechMode, referenceText: string, transcr
     };
   }
 
-  if (mode === "lexical") {
+  if (testCase.pronunciationAssessment || testCase.mode === "targeted_pronunciation") {
+    return {
+      state: "retry_required" as DecisionState,
+      reason: alias.matched
+        ? "asr_alias_requires_pronunciation_evidence"
+        : "pronunciation_evidence_required",
+      reading,
+      alias,
+    };
+  }
+
+  if (testCase.mode === "lexical") {
     const errors =
       (reading.deletion || 0)
       + (reading.insertion || 0)
@@ -87,17 +127,6 @@ export function decisionPreview(mode: SpeechMode, referenceText: string, transcr
     return {
       state: "retry_required" as DecisionState,
       reason: "lexical_mismatch_needs_confirmation",
-      reading,
-      alias,
-    };
-  }
-
-  if (mode === "targeted_pronunciation") {
-    return {
-      state: "retry_required" as DecisionState,
-      reason: alias.matched
-        ? "asr_alias_requires_pronunciation_evidence"
-        : "pronunciation_evidence_required",
       reading,
       alias,
     };

@@ -9,11 +9,21 @@ import styles from "./speech-test.module.css";
 
 type SpeechMode = "targeted_pronunciation" | "lexical" | "fluency";
 type TestCase = {
+  sequence: number;
   key: string;
+  sourceQuestionId: string;
+  group: string;
+  groupLabel: string;
+  ownerId: string | null;
+  role: string;
+  prompt: string;
   label: string;
   text: string;
   mode: SpeechMode;
+  pronunciationAssessment: boolean;
   focus: string | null;
+  skillGroup: string | null;
+  errorFocus: string | null;
 };
 
 type ProviderStatus = {
@@ -96,12 +106,6 @@ type AnalysisResult = {
     reason: string;
     academicEffect: "none";
   };
-};
-
-const modeLabel: Record<SpeechMode, string> = {
-  targeted_pronunciation: "نطق مستهدف",
-  lexical: "قراءة نصية",
-  fluency: "طلاقة",
 };
 
 const decisionLabel = {
@@ -201,11 +205,20 @@ export default function SpeechTestPage() {
   }, [audioUrl]);
 
   const selected = useMemo(() => cases.find((item) => item.key === selectedKey) || null, [cases, selectedKey]);
-  const grouped = useMemo(() => ({
-    targeted_pronunciation: cases.filter((item) => item.mode === "targeted_pronunciation"),
-    lexical: cases.filter((item) => item.mode === "lexical"),
-    fluency: cases.filter((item) => item.mode === "fluency"),
-  }), [cases]);
+  const grouped = useMemo(() => {
+    const order: Array<{ key: string; label: string; cases: TestCase[] }> = [];
+    const byKey = new Map<string, { key: string; label: string; cases: TestCase[] }>();
+    for (const item of cases) {
+      let group = byKey.get(item.group);
+      if (!group) {
+        group = { key: item.group, label: item.groupLabel, cases: [] };
+        byKey.set(item.group, group);
+        order.push(group);
+      }
+      group.cases.push(item);
+    }
+    return order;
+  }, [cases]);
 
   const resetResult = () => {
     setResult(null);
@@ -343,10 +356,10 @@ export default function SpeechTestPage() {
             <h2>حالات الاختبار</h2>
             <span>{cases.length}</span>
           </div>
-          {(["targeted_pronunciation", "lexical", "fluency"] as SpeechMode[]).map((mode) => (
-            <div className={styles.caseGroup} key={mode}>
-              <h3>{modeLabel[mode]}</h3>
-              {grouped[mode].map((item) => (
+          {grouped.map((group) => (
+            <div className={styles.caseGroup} key={group.key}>
+              <h3>{group.label}</h3>
+              {group.cases.map((item) => (
                 <button
                   type="button"
                   key={item.key}
@@ -369,8 +382,8 @@ export default function SpeechTestPage() {
               <section className={styles.testCard}>
                 <div className={styles.cardTop}>
                   <div>
-                    <span className={styles.mode}>{modeLabel[selected.mode]}</span>
-                    <h1>{selected.label}</h1>
+                    <span className={styles.mode}>{selected.groupLabel}</span>
+                    <h1>{selected.sourceQuestionId}</h1>
                   </div>
                   <label className={styles.codeField}>
                     <span>كود التجربة</span>
@@ -380,11 +393,11 @@ export default function SpeechTestPage() {
 
                 <div className={styles.reference}>{selected.text}</div>
                 <p className={styles.hint}>
-                  {selected.mode === "targeted_pronunciation"
-                    ? "اقرأ الحرف أو الكلمة كما هي. سنعرض ASR وPronunciation Assessment معًا."
-                    : selected.mode === "lexical"
-                      ? "اقرأ النص بصورة طبيعية. سنقارن الكلمات بعد إزالة التشكيل."
-                      : "اقرأ بصورة طبيعية ومريحة. سنحفظ الدقة والزمن معًا."}
+                  <strong>{selected.prompt}</strong>
+                  {" "}
+                  {selected.pronunciationAssessment
+                    ? "سنحفظ ASR وPronunciation Assessment معًا، دون قرار أكاديمي آلي."
+                    : "سنقارن الكلمات بالهدف الظاهر، دون فرض تشكيل غير ظاهر للطفل."}
                 </p>
 
                 <div className={styles.recordZone}>
@@ -420,12 +433,12 @@ export default function SpeechTestPage() {
 
                 {providerStatus && (
                   <div className={styles.readinessNote}>
-                    {selected.mode === "targeted_pronunciation"
+                    {selected.pronunciationAssessment
                       ? (providerStatus.pronunciation.configured
-                        ? "Azure ASR وPronunciation Assessment جاهزان لهذه التجربة."
-                        : "Pronunciation Assessment غير جاهز بعد؛ لن نبدأ تجربة الحركات حتى يكتمل إعداد المزود.")
+                        ? "Azure ASR وPronunciation Assessment جاهزان لهذا الهدف المشكول."
+                        : "Pronunciation Assessment غير جاهز؛ لا نرسل الهدف الذي يحتاج دليل نطق حتى يكتمل المزود.")
                       : (providerStatus.lexical.configured
-                        ? "Azure ASR جاهز لتحليل القراءة النصية."
+                        ? "Azure ASR جاهز لتحليل القراءة المباشرة."
                         : "Azure ASR غير جاهز بعد.")}
                   </div>
                 )}
@@ -440,7 +453,7 @@ export default function SpeechTestPage() {
                     || !participantCode.trim()
                     || !providerStatus?.storage.configured
                     || !providerStatus?.lexical.configured
-                    || (selected.mode === "targeted_pronunciation" && !providerStatus?.pronunciation.configured)
+                    || (selected.pronunciationAssessment && !providerStatus?.pronunciation.configured)
                   }
                   onClick={() => void analyze()}
                 >
@@ -543,7 +556,7 @@ export default function SpeechTestPage() {
                   <article className={styles.feedbackCard}>
                     <div>
                       <span>تقييمك أنت لهذه النتيجة</span>
-                      <h3>هل النموذج حكم بطريقة صحيحة؟</h3>
+                      <h3>كيف كان نطق التسجيل فعليًا؟</h3>
                     </div>
                     <div className={styles.verdictButtons}>
                       <button className={feedbackVerdict === "correct" ? styles.selectedGood : ""} onClick={() => setFeedbackVerdict("correct")} type="button">النطق صحيح</button>

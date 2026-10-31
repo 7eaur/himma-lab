@@ -3,7 +3,7 @@ import { getSupabaseAdmin, RECORDINGS_BUCKET } from "@/lib/supabase";
 import { transcribeAzure } from "@/lib/azure";
 import { assessAzurePronunciation } from "@/lib/azure-pronunciation";
 import { analyzePcm16Wav, blocksAnalysis } from "@/lib/audio-quality";
-import { TEST_CASES, decisionPreview } from "@/lib/speech-experiment";
+import { SPEECH_CONTENT_VERSION, TEST_CASES, decisionPreview } from "@/lib/speech-experiment";
 
 export const runtime = "nodejs";
 
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const storagePath = `speech-experiments/${participant.id}/${new Date().toISOString().slice(0,10)}/${crypto.randomUUID()}.wav`;
+  const storagePath = `speech-experiments/${participant.id}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.wav`;
   const { error: uploadError } = await supabase.storage.from(RECORDINGS_BUCKET).upload(storagePath, bytes, {
     contentType: "audio/wav",
     upsert: false,
@@ -70,9 +70,9 @@ export async function POST(request: Request) {
     allowNonArabicTranscript: testCase.mode === "targeted_pronunciation",
   });
   const analysisTranscript = asr.usable ? asr.transcript : null;
-  const preview = decisionPreview(testCase.mode, testCase.text, analysisTranscript);
-  const pronunciation = testCase.mode === "targeted_pronunciation"
-    ? await assessAzurePronunciation(audio, testCase.text)
+  const preview = decisionPreview(testCase, analysisTranscript);
+  const pronunciation = testCase.pronunciationAssessment
+    ? await assessAzurePronunciation(audio, testCase.readingReference)
     : null;
 
   const finalPreview = (() => {
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       };
     }
 
-    if (testCase.mode !== "targeted_pronunciation") return preview;
+    if (!testCase.pronunciationAssessment) return preview;
     if (!pronunciation?.configured || pronunciation.error || pronunciation.pronunciationScore == null) {
       return {
         ...preview,
@@ -92,15 +92,29 @@ export async function POST(request: Request) {
         reason: "pronunciation_evidence_unavailable",
       };
     }
-    return preview;
+
+    return {
+      ...preview,
+      state: "retry_required" as const,
+      reason: "pronunciation_evidence_pending_calibration",
+    };
   })();
 
   const payload = {
+    contentVersion: SPEECH_CONTENT_VERSION,
     testKey: testCase.key,
+    sourceQuestionId: testCase.sourceQuestionId,
+    group: testCase.group,
+    groupLabel: testCase.groupLabel,
+    role: testCase.role,
+    prompt: testCase.prompt,
     label: testCase.label,
     speechMode: testCase.mode,
     pronunciationFocus: testCase.focus,
+    pronunciationAssessmentRequired: testCase.pronunciationAssessment,
     referenceText: testCase.text,
+    reviewReference: testCase.readingReference,
+    displayScoringPolicy: testCase.displayScoringPolicy,
     audioQuality,
     asr: {
       configured: asr.configured,
@@ -126,6 +140,7 @@ export async function POST(request: Request) {
       state: finalPreview.state,
       reason: finalPreview.reason,
       academicEffect: "none",
+      academicAuthority: "human_supervisor",
     },
   };
 
@@ -134,6 +149,9 @@ export async function POST(request: Request) {
     .insert({
       participant_code: participantCode,
       test_key: testCase.key,
+      source_question_id: testCase.sourceQuestionId,
+      content_version: SPEECH_CONTENT_VERSION,
+      question_group: testCase.group,
       speech_mode: testCase.mode,
       pronunciation_focus: testCase.focus,
       reference_text: testCase.text,
@@ -146,7 +164,11 @@ export async function POST(request: Request) {
       asr_transcript: asr.transcript,
       asr_confidence: asr.confidence,
       asr_error: asr.error,
-      reading_analysis: preview.reading,
+      reading_analysis: {
+        ...preview.reading,
+        reviewReference: testCase.readingReference,
+        displayScoringPolicy: testCase.displayScoringPolicy,
+      },
       alias_evidence: preview.alias,
       pronunciation_evidence: pronunciation,
       decision_state: finalPreview.state,
