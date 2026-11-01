@@ -18,7 +18,7 @@ type CaseWithPrompt = { prompt: string; sequence: number };
 export function groupVoiceCasesForDisplay<T extends CaseWithPrompt>(cases: readonly T[]) {
   const bySequence = [...cases].sort((a, b) => a.sequence - b.sequence);
   const used = new Set<T>();
-  const groups = READING_SECTIONS.map((section) => {
+  const groups: Array<{ key: string; label: string; cases: T[] }> = READING_SECTIONS.map((section) => {
     const sectionCases = bySequence.filter((item) =>
       (section.prompts as readonly string[]).includes(item.prompt));
     sectionCases.forEach((item) => used.add(item));
