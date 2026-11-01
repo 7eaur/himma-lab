@@ -24,6 +24,8 @@ jobs:
         run: npm run test:feedback-review
       - name: Targeted letter alias contract
         run: npm run test:letter-aliases
+      - name: Voice case display order
+        run: npm run test:voice-case-order
       - name: TypeScript
         run: npm run typecheck
       - name: ESLint

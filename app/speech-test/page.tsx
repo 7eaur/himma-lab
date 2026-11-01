@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, CircleAlert, Mic, RotateCcw, Save, Square, TestTube2 } from "lucide-react";
 import { analyzePcm16Wav, blocksAnalysis, type AudioQualityEvidence } from "@/lib/audio-quality";
 import { PcmWavRecorder } from "@/lib/pcm-wav-recorder";
+import { groupVoiceCasesForDisplay } from "@/lib/voice-case-order";
 import styles from "./speech-test.module.css";
 
 type SpeechMode = "targeted_pronunciation" | "lexical" | "fluency";
@@ -211,20 +212,9 @@ export default function SpeechTestPage() {
   }, [audioUrl]);
 
   const selected = useMemo(() => cases.find((item) => item.key === selectedKey) || null, [cases, selectedKey]);
-  const grouped = useMemo(() => {
-    const order: Array<{ key: string; label: string; cases: TestCase[] }> = [];
-    const byKey = new Map<string, { key: string; label: string; cases: TestCase[] }>();
-    for (const item of cases) {
-      let group = byKey.get(item.group);
-      if (!group) {
-        group = { key: item.group, label: item.groupLabel, cases: [] };
-        byKey.set(item.group, group);
-        order.push(group);
-      }
-      group.cases.push(item);
-    }
-    return order;
-  }, [cases]);
+  // عرض أبسط للطفل والمختبِر: الحروف، الكلمات، الجمل، النصوص.
+  // يبقى ترتيب بنك V2 الأصلي ومعرّف كل سؤال محفوظًا كما هو.
+  const grouped = useMemo(() => groupVoiceCasesForDisplay(cases), [cases]);
 
   const resetResult = () => {
     setResult(null);
@@ -370,7 +360,7 @@ export default function SpeechTestPage() {
           </div>
           {grouped.map((group) => (
             <div className={styles.caseGroup} key={group.key}>
-              <h3>{group.label}</h3>
+              <h3>{group.label} ({group.cases.length})</h3>
               {group.cases.map((item) => (
                 <button
                   type="button"
