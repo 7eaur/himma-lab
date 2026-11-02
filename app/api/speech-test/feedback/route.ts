@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     .update(parsed.patch)
     .eq("id", parsed.runId)
     .eq("participant_code", parsed.participantCode)
-    .select("id,feedback_verdict,provider_feedback_verdict")
+    .select("id,feedback_verdict,provider_feedback_verdict,model_feedback_verdict")
     .maybeSingle();
 
   if (error) return NextResponse.json({ detail: "تعذر حفظ تقييم التجربة." }, { status: 500 });
@@ -28,5 +28,6 @@ export async function POST(request: Request) {
     saved: true,
     childVerdict: data.feedback_verdict,
     providerVerdict: data.provider_feedback_verdict,
+    modelVerdict: data.model_feedback_verdict,
   });
 }

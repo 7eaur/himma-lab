@@ -1,18 +1,14 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "sourceContentVersion": "himma-v2-62@4e6bf86528d17b8a1c81339cbe55634032cec5e3",
   "purpose": "asr_transcript_hypotheses_only",
   "academicEffect": "none",
   "policy": "do_not_fail_from_asr_only",
-  "notes": "None of these variants is an acceptable pronunciation by itself. Long-vowel spellings, bare letters, and Latin text cannot establish correct short vowels.",
+  "notes": "Experiment-only transcript hypotheses. Bare-letter variants were removed from nine requested targets; the unrequested رَ bare-letter candidate remains. do/qo/So are additional ASR spelling hypotheses, not pronunciation evidence. No candidate can establish vowel or academic correctness.",
   "cases": {
     "V2-PRE-Q06": {
       "reference": "لَ",
       "variants": [
-        {
-          "text": "ل",
-          "kind": "bare_letter"
-        },
         {
           "text": "لا",
           "kind": "long_vowel_spelling"
@@ -44,10 +40,6 @@
       "reference": "قِ",
       "variants": [
         {
-          "text": "ق",
-          "kind": "bare_letter"
-        },
-        {
           "text": "قي",
           "kind": "long_vowel_spelling"
         },
@@ -60,10 +52,6 @@
     "L1-04-IC-A01": {
       "reference": "بُ",
       "variants": [
-        {
-          "text": "ب",
-          "kind": "bare_letter"
-        },
         {
           "text": "بو",
           "kind": "long_vowel_spelling"
@@ -78,10 +66,6 @@
       "reference": "مَ",
       "variants": [
         {
-          "text": "م",
-          "kind": "bare_letter"
-        },
-        {
           "text": "ما",
           "kind": "long_vowel_spelling"
         },
@@ -95,15 +79,15 @@
       "reference": "سُ",
       "variants": [
         {
-          "text": "س",
-          "kind": "bare_letter"
-        },
-        {
           "text": "سو",
           "kind": "long_vowel_spelling"
         },
         {
           "text": "su",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "So",
           "kind": "latin_transliteration"
         }
       ]
@@ -112,15 +96,15 @@
       "reference": "دُ",
       "variants": [
         {
-          "text": "د",
-          "kind": "bare_letter"
-        },
-        {
           "text": "دو",
           "kind": "long_vowel_spelling"
         },
         {
           "text": "du",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "do",
           "kind": "latin_transliteration"
         }
       ]
@@ -128,10 +112,6 @@
     "SUP-03-GP-03": {
       "reference": "لِ",
       "variants": [
-        {
-          "text": "ل",
-          "kind": "bare_letter"
-        },
         {
           "text": "لي",
           "kind": "long_vowel_spelling"
@@ -146,10 +126,6 @@
       "reference": "فِ",
       "variants": [
         {
-          "text": "ف",
-          "kind": "bare_letter"
-        },
-        {
           "text": "في",
           "kind": "long_vowel_spelling"
         },
@@ -163,15 +139,15 @@
       "reference": "قُ",
       "variants": [
         {
-          "text": "ق",
-          "kind": "bare_letter"
-        },
-        {
           "text": "قو",
           "kind": "long_vowel_spelling"
         },
         {
           "text": "qu",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "qo",
           "kind": "latin_transliteration"
         }
       ]

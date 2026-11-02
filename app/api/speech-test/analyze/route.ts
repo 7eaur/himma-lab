@@ -7,6 +7,10 @@ import { SPEECH_CONTENT_VERSION, TEST_CASES, decisionPreview } from "@/lib/speec
 
 export const runtime = "nodejs";
 
+const EXPERIMENT_DECISION_VERSION = "lab-v2-20261102";
+const LETTER_ALIAS_CATALOG_VERSION = "1.1";
+
+
 function finiteNumber(value: FormDataEntryValue | null) {
   if (value == null || value === "") return null;
   const number = Number(value);
@@ -101,6 +105,7 @@ export async function POST(request: Request) {
   })();
 
   const payload = {
+    participantCode,
     contentVersion: SPEECH_CONTENT_VERSION,
     testKey: testCase.key,
     sourceQuestionId: testCase.sourceQuestionId,
@@ -134,13 +139,17 @@ export async function POST(request: Request) {
       diagnostics: asr.diagnostics,
     },
     reading: preview.reading,
-    alias: preview.alias,
+    alias: {
+      ...preview.alias,
+      catalogVersion: LETTER_ALIAS_CATALOG_VERSION,
+    },
     pronunciation,
     decision: {
       state: finalPreview.state,
       reason: finalPreview.reason,
       academicEffect: "none",
       academicAuthority: "human_supervisor",
+      policyVersion: EXPERIMENT_DECISION_VERSION,
     },
   };
 
@@ -169,13 +178,17 @@ export async function POST(request: Request) {
         reviewReference: testCase.readingReference,
         displayScoringPolicy: testCase.displayScoringPolicy,
       },
-      alias_evidence: preview.alias,
+      alias_evidence: {
+        ...preview.alias,
+        catalogVersion: LETTER_ALIAS_CATALOG_VERSION,
+      },
       pronunciation_evidence: pronunciation,
       decision_state: finalPreview.state,
       decision_reason: finalPreview.reason,
       audio_quality: audioQuality,
       asr_diagnostics: {
         source: asr.source,
+        decisionPolicyVersion: EXPERIMENT_DECISION_VERSION,
         recognitionStatus: asr.recognitionStatus,
         transcriptScript: asr.transcriptScript,
         usable: asr.usable,

@@ -1,52 +1,47 @@
 import assert from "node:assert/strict";
 import { parseSpeechFeedback } from "../lib/speech-feedback.ts";
 
-const identity = {
-  participantCode: " HIMMA21 ",
-  runId: "57ea9b43-c33e-489c-9083-46971bce9a30",
-};
-const now = "2026-11-01T00:00:00.000Z";
-
-const providerOnly = parseSpeechFeedback({
-  ...identity, providerVerdict: "accurate", providerNotes: "التحليل مطابق للصوت",
-}, now);
-assert.equal(providerOnly.ok, true);
-if (providerOnly.ok) {
-  assert.equal(providerOnly.participantCode, "HIMMA21");
-  assert.equal(providerOnly.patch.provider_feedback_verdict, "accurate");
-  assert.equal(providerOnly.patch.provider_feedback_notes, "التحليل مطابق للصوت");
-  assert.equal(Object.hasOwn(providerOnly.patch, "feedback_verdict"), false,
-    "Provider-only review must not erase a previous child-verdict");
+const identity={participantCode:" HIMMA21 ",runId:"57ea9b43-c33e-489c-9083-46971bce9a30"};
+const now="2026-11-02T00:00:00.000Z";
+const provider=parseSpeechFeedback({...identity,providerVerdict:"accurate",providerNotes:"النص مطابق"},now);
+assert.equal(provider.ok,true);
+if(provider.ok){
+ assert.equal(provider.participantCode,"HIMMA21");
+ assert.equal(provider.patch.provider_feedback_verdict,"accurate");
+ assert.equal(Object.hasOwn(provider.patch,"feedback_verdict"),false);
+ assert.equal(Object.hasOwn(provider.patch,"model_feedback_verdict"),false);
 }
-
-const childOnly = parseSpeechFeedback({ ...identity, verdict: "incorrect", observedText: "مِ" }, now);
-assert.equal(childOnly.ok, true);
-if (childOnly.ok) {
-  assert.equal(childOnly.patch.feedback_verdict, "incorrect");
-  assert.equal(childOnly.patch.feedback_observed_text, "مِ");
-  assert.equal(Object.hasOwn(childOnly.patch, "provider_feedback_verdict"), false,
-    "Child-only review must not erase a previous provider review");
+const child=parseSpeechFeedback({...identity,verdict:"incorrect",observedText:"مِ"},now);
+assert.equal(child.ok,true);
+if(child.ok){
+ assert.equal(child.patch.feedback_verdict,"incorrect");
+ assert.equal(child.patch.feedback_observed_text,"مِ");
+ assert.equal(Object.hasOwn(child.patch,"provider_feedback_verdict"),false);
+ assert.equal(Object.hasOwn(child.patch,"model_feedback_verdict"),false);
 }
-
-const both = parseSpeechFeedback({
-  ...identity, verdict: "correct", providerVerdict: "inaccurate",
-  providerObservedText: "قِ", providerNotes: "خطأ في التعرف",
-}, now);
-assert.equal(both.ok, true);
-if (both.ok) {
-  assert.equal(both.patch.feedback_verdict, "correct");
-  assert.equal(both.patch.provider_feedback_verdict, "inaccurate");
-  assert.equal(both.patch.provider_feedback_observed_text, "قِ");
+const model=parseSpeechFeedback({...identity,modelVerdict:"inappropriate",modelNotes:"إعادة غير لازمة"},now);
+assert.equal(model.ok,true);
+if(model.ok){
+ assert.equal(model.patch.model_feedback_verdict,"inappropriate");
+ assert.equal(model.patch.model_feedback_notes,"إعادة غير لازمة");
+ assert.equal(Object.hasOwn(model.patch,"feedback_verdict"),false);
+ assert.equal(Object.hasOwn(model.patch,"provider_feedback_verdict"),false);
 }
-
-for (const input of [
-  { ...identity },
-  { ...identity, verdict: "success" },
-  { ...identity, providerVerdict: "correct" },
-  { ...identity, providerVerdict: "accurate", providerNotes: "x".repeat(1501) },
-  { ...identity, providerVerdict: "accurate", runId: "bogus" },
-]) {
-  assert.equal(parseSpeechFeedback(input, now).ok, false);
+const all=parseSpeechFeedback({...identity,verdict:"correct",providerVerdict:"inaccurate",
+  providerObservedText:"قِ",providerNotes:"Azure confused haraka",
+  modelVerdict:"appropriate",modelNotes:"محافظ"},now);
+assert.equal(all.ok,true);
+if(all.ok){
+ assert.deepEqual([all.patch.feedback_verdict,all.patch.provider_feedback_verdict,all.patch.model_feedback_verdict],
+  ["correct","inaccurate","appropriate"]);
 }
-
-console.log("Provider-vs-child independent feedback contract passed.");
+for(const invalid of [
+ {...identity},
+ {...identity,verdict:"success"},
+ {...identity,providerVerdict:"correct"},
+ {...identity,modelVerdict:"wrong"},
+ {...identity,providerVerdict:"accurate",providerNotes:"x".repeat(1501)},
+ {...identity,modelVerdict:"appropriate",modelNotes:"x".repeat(1501)},
+ {...identity,modelVerdict:"appropriate",runId:"bogus"}
+]) assert.equal(parseSpeechFeedback(invalid,now).ok,false);
+console.log("Three-way independent review contract passed: child/provider/model saved without field overwrites.");

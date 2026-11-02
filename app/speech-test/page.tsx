@@ -35,6 +35,7 @@ type ProviderStatus = {
 };
 
 type AnalysisResult = {
+  participantCode: string;
   runId: string;
   createdAt: string;
   label: string;
@@ -115,8 +116,20 @@ type AnalysisResult = {
 const decisionLabel = {
   correct: "صحيح",
   incorrect: "خطأ",
-  retry_required: "يحتاج إعادة / دليل إضافي",
+  retry_required: "بانتظار مراجعة أو دليل إضافي",
 } as const;
+
+const decisionReasonLabel: Record<string, string> = {
+  no_transcript: "لم يتعرّف Azure على كلمات واضحة",
+  azure_no_match: "لم يتعرف Azure على الكلام",
+  azure_non_arabic_transcript: "التفريغ ليس باللغة العربية المطلوبة",
+  asr_spelling_variant_requires_human_vowel_verification: "تفريغ محتمل، لكن الحركة القصيرة غير مؤكدة",
+  pronunciation_evidence_pending_calibration: "لم تُعتمد بعد حدود موثوقة للحكم على النطق",
+  pronunciation_evidence_unavailable: "دليل تقييم النطق غير متاح",
+  lexical_mismatch_needs_confirmation: "هناك اختلاف بين النصين يحتاج مراجعة",
+  exact_lexical_match: "تطابق الكلمات المكتوبة لا يعني وحده صحة جميع الحركات",
+  fluency_policy_pending: "سياسة الطلاقة لم تُعتمد بعد",
+};
 
 const alignmentLabel: Record<string, string> = {
   correct: "صحيح",
@@ -169,6 +182,8 @@ export default function SpeechTestPage() {
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
   const [feedbackVerdict, setFeedbackVerdict] = useState<"correct" | "incorrect" | "unclear" | "">("");
   const [providerVerdict, setProviderVerdict] = useState<"accurate" | "inaccurate" | "unclear" | "">("");
+  const [modelVerdict, setModelVerdict] = useState<"appropriate" | "inappropriate" | "unclear" | "">("");
+  const [modelNotes, setModelNotes] = useState("");
   const [providerObservedText, setProviderObservedText] = useState("");
   const [providerNotes, setProviderNotes] = useState("");
   const [observedText, setObservedText] = useState("");
@@ -220,6 +235,8 @@ export default function SpeechTestPage() {
     setResult(null);
     setFeedbackVerdict("");
     setProviderVerdict("");
+    setModelVerdict("");
+    setModelNotes("");
     setProviderObservedText("");
     setProviderNotes("");
     setObservedText("");
@@ -302,7 +319,7 @@ export default function SpeechTestPage() {
   };
 
   const saveFeedback = async () => {
-    if (!result || (!feedbackVerdict && !providerVerdict)) return;
+    if (!result || (!feedbackVerdict && !providerVerdict && !modelVerdict)) return;
     setSavingFeedback(true);
     setMessage("");
     try {
@@ -310,7 +327,7 @@ export default function SpeechTestPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          participantCode: participantCode.trim().toUpperCase(),
+          participantCode: result.participantCode,
           runId: result.runId,
           verdict: feedbackVerdict || undefined,
           observedText,
@@ -318,6 +335,8 @@ export default function SpeechTestPage() {
           providerVerdict: providerVerdict || undefined,
           providerObservedText: providerVerdict === "inaccurate" ? providerObservedText : "",
           providerNotes,
+          modelVerdict: modelVerdict || undefined,
+          modelNotes,
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -385,7 +404,7 @@ export default function SpeechTestPage() {
                 <div className={styles.cardTop}>
                   <div>
                     <span className={styles.mode}>{selected.groupLabel}</span>
-                    <h1>{selected.sourceQuestionId}</h1>
+                    <h1>{selected.prompt.replace(" بصوت واضح.", "")}</h1>
                   </div>
                   <label className={styles.codeField}>
                     <span>كود التجربة</span>
@@ -396,9 +415,7 @@ export default function SpeechTestPage() {
                 <div className={styles.reference}>{selected.text}</div>
                 <p className={styles.hint}><strong>{selected.prompt}</strong></p>
                 <p className={styles.hint} dir="rtl">
-                  {selected.pronunciationAssessment
-                    ? "سيجمع المختبر أدلة التعرف الآلي وتقييم النطق دون إصدار حكم أكاديمي."
-                    : "سنقارن الكلمات بالنص الظاهر دون فرض حركات غير معروضة للطفل."}
+                  استمع إلى تسجيلك ثم حلّله وقيّم النطق بنفسك. جميع قرارات المختبر تجريبية فقط.
                 </p>
 
                 <div className={styles.recordZone}>
@@ -424,11 +441,7 @@ export default function SpeechTestPage() {
                 {audioQuality && (
                   <div className={styles.qualityNote} data-state={audioQuality.state}>
                     <strong>{qualityMessage(audioQuality)}</strong>
-                    <span>
-                      RMS {audioQuality.rms == null ? "—" : audioQuality.rms.toFixed(4)}
-                      {" · "}
-                      إطارات منخفضة الشدة {audioQuality.silenceRatio == null ? "—" : `${Math.round(audioQuality.silenceRatio * 100)}%`}
-                    </span>
+                    <small>مؤشرات جودة الصوت للتنبيه فقط، وليست تقييمًا لنطق الطفل.</small>
                   </div>
                 )}
 
@@ -466,157 +479,134 @@ export default function SpeechTestPage() {
                 <section className={styles.results}>
                   <div className={styles.resultHero}>
                     <div>
-                      <span>قرار النموذج الحالي</span>
+                      <span>قرار النموذج التجريبي — محفوظ تلقائيًا</span>
                       <h2>{decisionLabel[result.decision.state]}</h2>
-                      <small>{result.decision.reason}</small>
+                      <small>{decisionReasonLabel[result.decision.reason] || "يحتاج مراجعة الأدلة الصوتية"}</small>
+                      <p className={styles.resultDisclaimer}>هذا ليس حكمًا نهائيًا على قراءة الطفل.</p>
                     </div>
-                    <div className={styles.accuracyCircle}>
-                      <strong>{percent01(result.reading.lexicalAccuracy)}</strong>
-                      <span>دقة لفظية</span>
-                    </div>
+                    {result.speechMode !== "targeted_pronunciation" && result.reading.lexicalAccuracy != null && (
+                      <div className={styles.accuracyCircle}>
+                        <strong>{percent01(result.reading.lexicalAccuracy)}</strong>
+                        <span>تطابق الكلمات فقط</span>
+                      </div>
+                    )}
                   </div>
 
-                  <div className={styles.metrics}>
-                    <div><span>ثقة ASR</span><strong>{percent01(result.asr.confidence)}</strong></div>
-                    <div><span>صحيح C</span><strong>{result.reading.correct ?? "—"}</strong></div>
-                    <div><span>حذف D</span><strong>{result.reading.deletion ?? "—"}</strong></div>
-                    <div><span>إضافة I</span><strong>{result.reading.insertion ?? "—"}</strong></div>
-                    <div><span>استبدال S</span><strong>{result.reading.substitution ?? "—"}</strong></div>
-                    <div><span>WER</span><strong>{percent01(result.reading.wer)}</strong></div>
-                  </div>
-
-                  <div className={styles.evidenceGrid}>
-                    <article className={styles.evidenceCard}>
-                      <span>Azure ASR</span>
-                      <h3>{result.asr.transcript || "لم يرجع نصًا"}</h3>
-                      <p>المسار: {result.asr.source} · الحالة: {result.asr.recognitionStatus || "—"}</p>
-                      <p>المرجع بعد التطبيع: {result.reading.normalizedReference || "—"}</p>
-                      <p>الناتج بعد التطبيع: {result.reading.normalizedTranscript || "—"}</p>
-                      {result.asr.snr != null && <p>SNR: {result.asr.snr.toFixed(1)} dB</p>}
-                      {asrErrorMessage(result.asr.error) && <b>{asrErrorMessage(result.asr.error)}</b>}
-                    </article>
-
-                    <article className={styles.evidenceCard}>
-                      <span>Audio / Alias Evidence</span>
-                      <h3>{result.alias.matched ? "تطابق تفريغ محتمل من Azure" : "لا يوجد بديل مطابق للتفريغ"}</h3>
-                      <p>التفريغ المحتمل: {result.alias.matchedAlias || "—"}</p>
-                      {result.alias.matched && (
-                        <p>
-                          {result.alias.matchKind === "long_vowel_spelling"
-                            ? "قد يكتب Azure الحركة القصيرة كحرف مد. لا يمكن الجزم من الكتابة إن كان الطفل مدّ الصوت فعلًا."
-                            : result.alias.matchKind === "bare_letter"
-                              ? "كتب Azure الحرف دون حركة؛ نوع الحركة غير محسوم."
-                              : "مطابقة كتابية محتملة لا تثبت دقة نطق الحركة."}
-                        </p>
-                      )}
-                      <p>فحص الصوت: {qualityMessage(result.audioQuality)}</p>
-                      <small>البدائل لا تعطي نجاحًا تلقائيًا ولا تصحح أخطاء الحركات؛ تبقى أدلة للمراجعة البشرية.</small>
-                    </article>
-                  </div>
+                  <article className={styles.evidenceCard}>
+                    <span>ما الذي فهمه Azure من التسجيل؟</span>
+                    <h3 dir="auto">{result.asr.transcript || "لم يتعرف Azure على نص"}</h3>
+                    {result.asr.confidence != null && <p>ثقة التفريغ: {percent01(result.asr.confidence)} — ليست دقة نطق الطفل</p>}
+                    {asrErrorMessage(result.asr.error) && <p>{asrErrorMessage(result.asr.error)}</p>}
+                    {result.alias.matched && (
+                      <div className={styles.aliasNote}>
+                        <strong>تهجئة بديلة محتملة: {result.alias.matchedAlias}</strong>
+                        <p>لا تثبت صحة الحركة أو المد. استمع إلى الصوت قبل تقييم الطفل.</p>
+                      </div>
+                    )}
+                  </article>
 
                   {result.pronunciation && (
-                    <article className={styles.pronunciationCard}>
-                      <div className={styles.pronunciationHeader}>
-                        <div>
-                          <span>Azure Pronunciation Assessment</span>
-                          <h3>{result.pronunciation.locale} · {result.pronunciation.recognitionStatus || "—"}</h3>
-                        </div>
-                        <div className={styles.pronScore}>
-                          <strong>{percent100(result.pronunciation.pronunciationScore)}</strong>
-                          <span>Pronunciation</span>
-                        </div>
-                      </div>
+                    <details className={styles.rawEvidence}>
+                      <summary>عرض مؤشرات Azure لتقييم النطق (أدلة فنية وليست نتيجة نهائية)</summary>
                       <div className={styles.metrics}>
+                        <div><span>Pronunciation</span><strong>{percent100(result.pronunciation.pronunciationScore)}</strong></div>
                         <div><span>Accuracy</span><strong>{percent100(result.pronunciation.accuracyScore)}</strong></div>
                         <div><span>Fluency</span><strong>{percent100(result.pronunciation.fluencyScore)}</strong></div>
                         <div><span>Completeness</span><strong>{percent100(result.pronunciation.completenessScore)}</strong></div>
-                        <div><span>Confidence</span><strong>{percent01(result.pronunciation.confidence)}</strong></div>
                       </div>
-                      <p className={styles.pronTranscript}>تعرف المزود: <strong>{result.pronunciation.transcript || "—"}</strong></p>
-                      {result.pronunciation.error && <div className={styles.inlineError}>{result.pronunciation.error}</div>}
-                      {result.pronunciation.words.length > 0 && (
-                        <div className={styles.wordScores}>
-                          {result.pronunciation.words.map((word, index) => (
-                            <div key={`${word.word}-${index}`}>
-                              <strong>{word.word}</strong>
-                              <span>دقة {percent100(word.accuracyScore)}</span>
-                              <span>{word.errorType || "NoError"}</span>
-                              {word.phonemeScores.length > 0 && <small>Phonemes: {word.phonemeScores.map((score) => Math.round(score)).join(" / ")}</small>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </article>
+                      <p className={styles.reviewExplanation}>قد لا يميّز Azure الحركة القصيرة في حرف منفرد. هذه الدرجات ليست حكمًا آليًا بصحة النطق.</p>
+                      {result.pronunciation.error && <p>{result.pronunciation.error}</p>}
+                    </details>
                   )}
-
-                  <article className={styles.alignmentCard}>
-                    <h3>المحاذاة C / D / I / S</h3>
-                    <div className={styles.alignmentTable}>
-                      {result.reading.alignment.length === 0 && <p>لا توجد محاذاة متاحة.</p>}
-                      {result.reading.alignment.map((row, index) => (
-                        <div key={index}>
-                          <span>{row.reference || "—"}</span>
-                          <span>{row.observed || "—"}</span>
-                          <b data-kind={row.status}>{alignmentLabel[row.status] || row.status}</b>
-                        </div>
-                      ))}
-                    </div>
-                  </article>
 
                   <article className={styles.feedbackCard}>
                     <div>
-                      <span>مراجعة مستقلة لكل تجربة · لا أثر أكاديمي</span>
-                      <h3>قيّم تحليل المزود ونطق الطفل كلًّا على حدة</h3>
+                      <span>مراجعة هذا التسجيل · لا أثر أكاديمي</span>
+                      <h3>استمع إلى التسجيل، ثم قيّم النطق والتحليل والقرار</h3>
+                      <p className={styles.reviewExplanation}>نتيجة Azure وقرار النموذج محفوظان تلقائيًا. تقييمك مستقل عنهما ولا يغيّر قرار الطفل أكاديميًا.</p>
                     </div>
+
                     <div className={styles.reviewGroup}>
-                      <strong className={styles.reviewHeading}>أولًا: هل تحليل Azure صحيح؟</strong>
-                      <p className={styles.reviewExplanation}>
-                        استمع إلى تسجيلك وقارن ما فهمه Azure بما نُطق فعلًا. هذه الموافقة لا تعني أن الطفل قرأ الهدف صحيحًا.
-                      </p>
-                      <div className={styles.providerReviewEvidence}>
-                        <span>نص Azure: <b dir="auto">{result.asr.transcript || "لم يتعرف على نص"}</b></span>
-                        {result.pronunciation && <span>تقييم النطق: <b>{percent100(result.pronunciation.pronunciationScore)}</b></span>}
-                      </div>
+                      <strong className={styles.reviewHeading}>1. هل نطق الطفل الهدف بشكل صحيح؟</strong>
                       <div className={styles.verdictButtons}>
-                        <button aria-pressed={providerVerdict === "accurate"} className={providerVerdict === "accurate" ? styles.selectedGood : ""} onClick={() => { setProviderVerdict("accurate"); setFeedbackSaved(false); }} type="button">نعم، تحليل المزود صحيح</button>
-                        <button aria-pressed={providerVerdict === "inaccurate"} className={providerVerdict === "inaccurate" ? styles.selectedBad : ""} onClick={() => { setProviderVerdict("inaccurate"); setFeedbackSaved(false); }} type="button">لا، تحليل المزود غير صحيح</button>
-                        <button aria-pressed={providerVerdict === "unclear"} className={providerVerdict === "unclear" ? styles.selectedNeutral : ""} onClick={() => { setProviderVerdict("unclear"); setFeedbackSaved(false); }} type="button">لا أستطيع الحكم</button>
+                        <button aria-pressed={feedbackVerdict === "correct"} className={feedbackVerdict === "correct" ? styles.selectedGood : ""} onClick={() => { setFeedbackVerdict("correct"); setFeedbackSaved(false); }} type="button">النطق صحيح</button>
+                        <button aria-pressed={feedbackVerdict === "incorrect"} className={feedbackVerdict === "incorrect" ? styles.selectedBad : ""} onClick={() => { setFeedbackVerdict("incorrect"); setFeedbackSaved(false); }} type="button">النطق خطأ</button>
+                        <button aria-pressed={feedbackVerdict === "unclear"} className={feedbackVerdict === "unclear" ? styles.selectedNeutral : ""} onClick={() => { setFeedbackVerdict("unclear"); setFeedbackSaved(false); }} type="button">غير واضح</button>
                       </div>
-                      {providerVerdict === "inaccurate" && (
-                        <label>
-                          <span>ماذا قيل فعليًا؟ (اختياري)</span>
-                          <input value={providerObservedText} onChange={(event) => { setProviderObservedText(event.target.value); setFeedbackSaved(false); }} placeholder="اكتب ما سمعته بدل النص الذي أعاده Azure" maxLength={500} />
+                      {feedbackVerdict === "incorrect" && (
+                        <label><span>ما الذي نطقه الطفل فعليًا؟ (اختياري)</span>
+                          <input value={observedText} onChange={(event) => { setObservedText(event.target.value); setFeedbackSaved(false); }} maxLength={500} placeholder="مثال: لِ بدل لَ" />
                         </label>
                       )}
-                      <label>
-                        <span>ملاحظات تحليل المزود (اختياري)</span>
-                        <textarea value={providerNotes} onChange={(event) => { setProviderNotes(event.target.value); setFeedbackSaved(false); }} placeholder="مثال: النص صحيح لكن تقييم النطق غير منطقي، أو فاتته كلمة..." maxLength={1500} />
-                      </label>
+                      {feedbackVerdict && (
+                        <label><span>ملاحظة على النطق (اختيارية)</span>
+                          <textarea value={notes} onChange={(event) => { setNotes(event.target.value); setFeedbackSaved(false); }} maxLength={1500} placeholder="مثل: مدّ الحركة أو بدّل الفتحة بالكسرة" />
+                        </label>
+                      )}
                     </div>
+
                     <div className={styles.reviewGroup}>
-                      <strong className={styles.reviewHeading}>ثانيًا: هل نطق الطفل صحيح؟ (تقييم مستقل)</strong>
-                      <p className={styles.reviewExplanation}>قارن ما سمعت بالنص المعروض، بصرف النظر عن نتيجة Azure. يمكن ترك هذا التقييم فارغًا.</p>
+                      <strong className={styles.reviewHeading}>2. هل تفريغ Azure مطابق لما نُطق؟</strong>
                       <div className={styles.verdictButtons}>
-                        <button aria-pressed={feedbackVerdict === "correct"} className={feedbackVerdict === "correct" ? styles.selectedGood : ""} onClick={() => { setFeedbackVerdict("correct"); setFeedbackSaved(false); }} type="button">نطق الطفل صحيح</button>
-                        <button aria-pressed={feedbackVerdict === "incorrect"} className={feedbackVerdict === "incorrect" ? styles.selectedBad : ""} onClick={() => { setFeedbackVerdict("incorrect"); setFeedbackSaved(false); }} type="button">نطق الطفل خطأ</button>
-                        <button aria-pressed={feedbackVerdict === "unclear"} className={feedbackVerdict === "unclear" ? styles.selectedNeutral : ""} onClick={() => { setFeedbackVerdict("unclear"); setFeedbackSaved(false); }} type="button">نطق الطفل غير واضح</button>
+                        <button aria-pressed={providerVerdict === "accurate"} className={providerVerdict === "accurate" ? styles.selectedGood : ""} onClick={() => { setProviderVerdict("accurate"); setFeedbackSaved(false); }} type="button">مطابق</button>
+                        <button aria-pressed={providerVerdict === "inaccurate"} className={providerVerdict === "inaccurate" ? styles.selectedBad : ""} onClick={() => { setProviderVerdict("inaccurate"); setFeedbackSaved(false); }} type="button">غير مطابق</button>
+                        <button aria-pressed={providerVerdict === "unclear"} className={providerVerdict === "unclear" ? styles.selectedNeutral : ""} onClick={() => { setProviderVerdict("unclear"); setFeedbackSaved(false); }} type="button">غير متأكد</button>
                       </div>
-                      <label>
-                        <span>ما الذي نطقه الطفل؟ (اختياري)</span>
-                        <input value={observedText} onChange={(event) => { setObservedText(event.target.value); setFeedbackSaved(false); }} placeholder="مثال: مِ بدل مَ" maxLength={500} />
-                      </label>
-                      <label>
-                        <span>ملاحظتك على نطق الطفل (اختياري)</span>
-                        <textarea value={notes} onChange={(event) => { setNotes(event.target.value); setFeedbackSaved(false); }} placeholder="ملاحظة تربوية أو صوتية عن النطق نفسه" maxLength={1500} />
-                      </label>
+                      {providerVerdict === "inaccurate" && (
+                        <label><span>ماذا سمعت بدل تفريغ Azure؟ (اختياري)</span>
+                          <input value={providerObservedText} onChange={(event) => { setProviderObservedText(event.target.value); setFeedbackSaved(false); }} maxLength={500} placeholder="التفريغ الصحيح حسب سماعك" />
+                        </label>
+                      )}
+                      {providerVerdict && (
+                        <label><span>ملاحظة عن Azure (اختيارية)</span>
+                          <textarea value={providerNotes} onChange={(event) => { setProviderNotes(event.target.value); setFeedbackSaved(false); }} maxLength={1500} placeholder="مثال: كتب لا بدل لَ أو أخطأ في تقييم الحركة" />
+                        </label>
+                      )}
                     </div>
-                    <button className={styles.saveFeedback} disabled={(!feedbackVerdict && !providerVerdict) || savingFeedback || feedbackSaved} onClick={() => void saveFeedback()} type="button">
-                      {feedbackSaved ? <><CheckCircle2 size={18}/> حُفظ تقييم التجربة</> : <><Save size={18}/> {savingFeedback ? "جاري حفظ التقييمين..." : "احفظ التقييم المحدد"}</>}
+
+                    <div className={styles.reviewGroup}>
+                      <strong className={styles.reviewHeading}>3. هل قرار النموذج مناسب؟</strong>
+                      <p className={styles.reviewExplanation}>قراره: {decisionLabel[result.decision.state]}. قد تكون المراجعة مناسبة حتى لو كان نطق الطفل صحيحًا، عند ضعف الأدلة.</p>
+                      <div className={styles.verdictButtons}>
+                        <button aria-pressed={modelVerdict === "appropriate"} className={modelVerdict === "appropriate" ? styles.selectedGood : ""} onClick={() => { setModelVerdict("appropriate"); setFeedbackSaved(false); }} type="button">قرار مناسب</button>
+                        <button aria-pressed={modelVerdict === "inappropriate"} className={modelVerdict === "inappropriate" ? styles.selectedBad : ""} onClick={() => { setModelVerdict("inappropriate"); setFeedbackSaved(false); }} type="button">قرار غير مناسب</button>
+                        <button aria-pressed={modelVerdict === "unclear"} className={modelVerdict === "unclear" ? styles.selectedNeutral : ""} onClick={() => { setModelVerdict("unclear"); setFeedbackSaved(false); }} type="button">غير متأكد</button>
+                      </div>
+                      {modelVerdict === "inappropriate" && (
+                        <label><span>لماذا القرار غير مناسب؟ (اختياري)</span>
+                          <textarea value={modelNotes} onChange={(event) => { setModelNotes(event.target.value); setFeedbackSaved(false); }} maxLength={1500} placeholder="مثل: طلب إعادة رغم وجود دليل كافٍ" />
+                        </label>
+                      )}
+                    </div>
+
+                    <button className={styles.saveFeedback} disabled={(!feedbackVerdict && !providerVerdict && !modelVerdict) || savingFeedback || feedbackSaved} onClick={() => void saveFeedback()} type="button">
+                      {feedbackSaved ? <><CheckCircle2 size={18}/> حُفظ تقييم هذا التسجيل</> : <><Save size={18}/> {savingFeedback ? "جاري حفظ التقييم..." : "احفظ التقييمات المحددة"}</>}
                     </button>
+                    <p className={styles.reviewExplanation}>يفضّل تقييم الثلاثة لكل تسجيل. ويمكن حفظ أحدها دون مسح البقية.</p>
                   </article>
 
                   <details className={styles.rawEvidence}>
-                    <summary>عرض البيانات الخام للتجربة</summary>
+                    <summary>تفاصيل تقنية للباحث: مقارنة الكلمات ومؤشرات الصوت والبيانات الخام</summary>
+                    {result.speechMode !== "targeted_pronunciation" && (
+                      <>
+                        <div className={styles.metrics}>
+                          <div><span>صحيح C</span><strong>{result.reading.correct ?? "—"}</strong></div>
+                          <div><span>حذف D</span><strong>{result.reading.deletion ?? "—"}</strong></div>
+                          <div><span>إضافة I</span><strong>{result.reading.insertion ?? "—"}</strong></div>
+                          <div><span>استبدال S</span><strong>{result.reading.substitution ?? "—"}</strong></div>
+                          <div><span>WER</span><strong>{percent01(result.reading.wer)}</strong></div>
+                        </div>
+                        <div className={styles.alignmentTable}>
+                          {result.reading.alignment.map((row, index) => (
+                            <div key={index}>
+                              <span>{row.reference || "—"}</span>
+                              <span>{row.observed || "—"}</span>
+                              <b data-kind={row.status}>{alignmentLabel[row.status] || row.status}</b>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
                     <pre>{JSON.stringify(result, null, 2)}</pre>
                   </details>
                 </section>
