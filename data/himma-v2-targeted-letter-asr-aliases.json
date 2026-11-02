@@ -1,0 +1,196 @@
+{
+  "schemaVersion": "1.2",
+  "sourceContentVersion": "himma-v2-62@4e6bf86528d17b8a1c81339cbe55634032cec5e3",
+  "purpose": "asr_transcript_hypotheses_only",
+  "academicEffect": "none",
+  "policy": "do_not_fail_from_asr_only",
+  "notes": "Experimental ASR transcript spellings only. Arabic راء and ماء plus Chinese 例 were observed with human correct-pronunciation labels; these labels are NOT provider approvals. Chinese 啦/吗/苏/不 are dictionary-checked pinyin candidates not yet observed against their matching V2 targets. Chinese tones and phonemes are not equivalent to Arabic harakat. Every variant is do_not_fail_from_asr_only and vowelVerified=false.",
+  "cases": {
+    "V2-PRE-Q06": {
+      "reference": "لَ",
+      "variants": [
+        {
+          "text": "لا",
+          "kind": "long_vowel_spelling"
+        },
+        {
+          "text": "la",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "啦",
+          "kind": "chinese_phonetic_hypothesis",
+          "pinyin": "la",
+          "evidenceSource": "pinyin_candidate"
+        }
+      ]
+    },
+    "L1-04-GP-02": {
+      "reference": "رَ",
+      "variants": [
+        {
+          "text": "ر",
+          "kind": "bare_letter"
+        },
+        {
+          "text": "را",
+          "kind": "long_vowel_spelling"
+        },
+        {
+          "text": "ra",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "راء",
+          "kind": "arabic_letter_name_spelling",
+          "evidenceSource": "observed_human_correct"
+        }
+      ]
+    },
+    "L1-04-GP-04": {
+      "reference": "قِ",
+      "variants": [
+        {
+          "text": "قي",
+          "kind": "long_vowel_spelling"
+        },
+        {
+          "text": "qi",
+          "kind": "latin_transliteration"
+        }
+      ]
+    },
+    "L1-04-IC-A01": {
+      "reference": "بُ",
+      "variants": [
+        {
+          "text": "بو",
+          "kind": "long_vowel_spelling"
+        },
+        {
+          "text": "bu",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "不",
+          "kind": "chinese_phonetic_hypothesis",
+          "pinyin": "bù",
+          "evidenceSource": "pinyin_candidate"
+        }
+      ]
+    },
+    "L1-04-IC-A03": {
+      "reference": "مَ",
+      "variants": [
+        {
+          "text": "ما",
+          "kind": "long_vowel_spelling"
+        },
+        {
+          "text": "ma",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "ماء",
+          "kind": "arabic_letter_name_spelling",
+          "evidenceSource": "observed_human_correct"
+        },
+        {
+          "text": "吗",
+          "kind": "chinese_phonetic_hypothesis",
+          "pinyin": "ma",
+          "evidenceSource": "pinyin_candidate"
+        }
+      ]
+    },
+    "SUP-03-GP-01": {
+      "reference": "سُ",
+      "variants": [
+        {
+          "text": "سو",
+          "kind": "long_vowel_spelling"
+        },
+        {
+          "text": "su",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "So",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "苏",
+          "kind": "chinese_phonetic_hypothesis",
+          "pinyin": "sū",
+          "evidenceSource": "pinyin_candidate"
+        }
+      ]
+    },
+    "SUP-03-SC-01": {
+      "reference": "دُ",
+      "variants": [
+        {
+          "text": "دو",
+          "kind": "long_vowel_spelling"
+        },
+        {
+          "text": "du",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "do",
+          "kind": "latin_transliteration"
+        }
+      ]
+    },
+    "SUP-03-GP-03": {
+      "reference": "لِ",
+      "variants": [
+        {
+          "text": "لي",
+          "kind": "long_vowel_spelling"
+        },
+        {
+          "text": "li",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "例",
+          "kind": "chinese_phonetic_hypothesis",
+          "pinyin": "lì",
+          "evidenceSource": "observed_human_correct"
+        }
+      ]
+    },
+    "SUP-03-SC-03": {
+      "reference": "فِ",
+      "variants": [
+        {
+          "text": "في",
+          "kind": "long_vowel_spelling"
+        },
+        {
+          "text": "fi",
+          "kind": "latin_transliteration"
+        }
+      ]
+    },
+    "V2-POST-Q06": {
+      "reference": "قُ",
+      "variants": [
+        {
+          "text": "قو",
+          "kind": "long_vowel_spelling"
+        },
+        {
+          "text": "qu",
+          "kind": "latin_transliteration"
+        },
+        {
+          "text": "qo",
+          "kind": "latin_transliteration"
+        }
+      ]
+    }
+  }
+}

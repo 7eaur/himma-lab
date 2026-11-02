@@ -16,6 +16,16 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Voice corpus contract
+        run: npm run validate:voice-cases
+      - name: Audio preflight regression
+        run: npm run test:audio-preflight
+      - name: Speech feedback contract
+        run: npm run test:feedback-review
+      - name: Targeted letter alias contract
+        run: npm run test:letter-aliases
+      - name: Voice case display order
+        run: npm run test:voice-case-order
       - name: TypeScript
         run: npm run typecheck
       - name: ESLint
