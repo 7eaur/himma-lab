@@ -1,10 +1,10 @@
 {
-  "schemaVersion": "1.1",
+  "schemaVersion": "1.2",
   "sourceContentVersion": "himma-v2-62@4e6bf86528d17b8a1c81339cbe55634032cec5e3",
   "purpose": "asr_transcript_hypotheses_only",
   "academicEffect": "none",
   "policy": "do_not_fail_from_asr_only",
-  "notes": "Experiment-only transcript hypotheses. Bare-letter variants were removed from nine requested targets; the unrequested رَ bare-letter candidate remains. do/qo/So are additional ASR spelling hypotheses, not pronunciation evidence. No candidate can establish vowel or academic correctness.",
+  "notes": "Experimental ASR transcript spellings only. Arabic راء and ماء plus Chinese 例 were observed with human correct-pronunciation labels; these labels are NOT provider approvals. Chinese 啦/吗/苏/不 are dictionary-checked pinyin candidates not yet observed against their matching V2 targets. Chinese tones and phonemes are not equivalent to Arabic harakat. Every variant is do_not_fail_from_asr_only and vowelVerified=false.",
   "cases": {
     "V2-PRE-Q06": {
       "reference": "لَ",
@@ -16,6 +16,12 @@
         {
           "text": "la",
           "kind": "latin_transliteration"
+        },
+        {
+          "text": "啦",
+          "kind": "chinese_phonetic_hypothesis",
+          "pinyin": "la",
+          "evidenceSource": "pinyin_candidate"
         }
       ]
     },
@@ -33,6 +39,11 @@
         {
           "text": "ra",
           "kind": "latin_transliteration"
+        },
+        {
+          "text": "راء",
+          "kind": "arabic_letter_name_spelling",
+          "evidenceSource": "observed_human_correct"
         }
       ]
     },
@@ -59,6 +70,12 @@
         {
           "text": "bu",
           "kind": "latin_transliteration"
+        },
+        {
+          "text": "不",
+          "kind": "chinese_phonetic_hypothesis",
+          "pinyin": "bù",
+          "evidenceSource": "pinyin_candidate"
         }
       ]
     },
@@ -72,6 +89,17 @@
         {
           "text": "ma",
           "kind": "latin_transliteration"
+        },
+        {
+          "text": "ماء",
+          "kind": "arabic_letter_name_spelling",
+          "evidenceSource": "observed_human_correct"
+        },
+        {
+          "text": "吗",
+          "kind": "chinese_phonetic_hypothesis",
+          "pinyin": "ma",
+          "evidenceSource": "pinyin_candidate"
         }
       ]
     },
@@ -89,6 +117,12 @@
         {
           "text": "So",
           "kind": "latin_transliteration"
+        },
+        {
+          "text": "苏",
+          "kind": "chinese_phonetic_hypothesis",
+          "pinyin": "sū",
+          "evidenceSource": "pinyin_candidate"
         }
       ]
     },
@@ -119,6 +153,12 @@
         {
           "text": "li",
           "kind": "latin_transliteration"
+        },
+        {
+          "text": "例",
+          "kind": "chinese_phonetic_hypothesis",
+          "pinyin": "lì",
+          "evidenceSource": "observed_human_correct"
         }
       ]
     },

@@ -4,11 +4,12 @@ import { transcribeAzure } from "@/lib/azure";
 import { assessAzurePronunciation } from "@/lib/azure-pronunciation";
 import { analyzePcm16Wav, blocksAnalysis } from "@/lib/audio-quality";
 import { SPEECH_CONTENT_VERSION, TEST_CASES, decisionPreview } from "@/lib/speech-experiment";
+import rawLetterAliasCatalog from "@/data/himma-v2-targeted-letter-asr-aliases.json";
 
 export const runtime = "nodejs";
 
 const EXPERIMENT_DECISION_VERSION = "lab-v2-20261102";
-const LETTER_ALIAS_CATALOG_VERSION = "1.1";
+const LETTER_ALIAS_CATALOG_VERSION = rawLetterAliasCatalog.schemaVersion;
 
 
 function finiteNumber(value: FormDataEntryValue | null) {

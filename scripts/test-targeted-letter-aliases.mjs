@@ -59,4 +59,40 @@ assert.equal(matchTargetedLetterAlias("قو","قِ",catalog.cases["L1-04-GP-04"]
 assert.equal(matchTargetedLetterAlias("قي","قُ",catalog.cases["V2-POST-Q06"].variants).matched,false);
 assert.equal(matchTargetedLetterAlias("لا.","لَ",catalog.cases["V2-PRE-Q06"].variants).warning,
   "short_vowel_vs_long_vowel_unverified");
-console.log("Safe letter aliases: 9 bare variants removed, ر unchanged, do/qo/So added, no vowel auto-accept.");
+
+const newCandidates=[
+  {id:"L1-04-GP-02",target:"رَ",spoken:"راء.",kind:"arabic_letter_name_spelling",source:"observed_human_correct"},
+  {id:"L1-04-IC-A03",target:"مَ",spoken:"ماء.",kind:"arabic_letter_name_spelling",source:"observed_human_correct"},
+  {id:"SUP-03-GP-03",target:"لِ",spoken:"例。",kind:"chinese_phonetic_hypothesis",source:"observed_human_correct",pinyin:"lì"},
+  {id:"V2-PRE-Q06",target:"لَ",spoken:"啦。",kind:"chinese_phonetic_hypothesis",source:"pinyin_candidate",pinyin:"la"},
+  {id:"L1-04-IC-A03",target:"مَ",spoken:"吗。",kind:"chinese_phonetic_hypothesis",source:"pinyin_candidate",pinyin:"ma"},
+  {id:"SUP-03-GP-01",target:"سُ",spoken:"苏。",kind:"chinese_phonetic_hypothesis",source:"pinyin_candidate",pinyin:"sū"},
+  {id:"L1-04-IC-A01",target:"بُ",spoken:"不。",kind:"chinese_phonetic_hypothesis",source:"pinyin_candidate",pinyin:"bù"},
+];
+for(const entry of newCandidates){
+  const candidates=catalog.cases[entry.id].variants;
+  const found=matchTargetedLetterAlias(entry.spoken,entry.target,candidates);
+  assert.equal(found.matched,true,JSON.stringify(entry));
+  assert.equal(found.matchKind,entry.kind);
+  assert.equal(found.evidenceSource,entry.source);
+  assert.equal(found.pinyin,entry.pinyin || null);
+  assert.equal(found.vowelVerified,false);
+  assert.equal(found.effect,"do_not_fail_from_asr_only");
+  assert.ok(found.warning);
+}
+// Arbitrary ideographs that are not close to the relevant Arabic phoneme
+// must not be turned into aliases just because Azure hallucinated Chinese.
+for(const [id,target,transcript] of [
+  ["V2-POST-Q06","قُ","嗯。"],
+  ["L1-04-GP-04","قِ","对。"],
+  ["L1-04-GP-02","رَ","好。"],
+  ["SUP-03-GP-03","لِ","不。"],
+  ["V2-PRE-Q06","لَ","例。"],
+  ["L1-04-IC-A01","بُ","吗。"]
+]){
+  assert.equal(matchTargetedLetterAlias(transcript,target,catalog.cases[id].variants).matched,false);
+}
+assert.equal(catalog.schemaVersion,"1.2");
+assert.equal(newCandidates.length,7);
+
+console.log("Targeted letter alias v1.2 passed: راء/ماء plus five phonetic Chinese candidates, no automatic vowel approval.");

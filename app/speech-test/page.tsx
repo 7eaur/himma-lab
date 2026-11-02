@@ -82,7 +82,9 @@ type AnalysisResult = {
   alias: {
     matched: boolean;
     matchedAlias: string | null;
-    matchKind: "bare_letter" | "long_vowel_spelling" | "latin_transliteration" | "exact_vowelled_text" | null;
+    matchKind: "bare_letter" | "long_vowel_spelling" | "latin_transliteration" | "arabic_letter_name_spelling" | "chinese_phonetic_hypothesis" | "exact_vowelled_text" | null;
+    evidenceSource: "observed_human_correct" | "pinyin_candidate" | null;
+    pinyin: string | null;
     effect: string | null;
     vowelVerified: false;
     warning: string | null;
@@ -500,7 +502,15 @@ export default function SpeechTestPage() {
                     {result.alias.matched && (
                       <div className={styles.aliasNote}>
                         <strong>تهجئة بديلة محتملة: {result.alias.matchedAlias}</strong>
-                        <p>لا تثبت صحة الحركة أو المد. استمع إلى الصوت قبل تقييم الطفل.</p>
+                        {result.alias.matchKind === "chinese_phonetic_hypothesis" ? (
+                          <p>
+                            تفريغ صيني قد يشبه الصوت (Pinyin: {result.alias.pinyin || "—"}).
+                            {result.alias.evidenceSource === "pinyin_candidate" ? " فرضية لغوية غير مجرّبة بعد على هذا الحرف." : " سبق رصدها في تجربة."}
+                            {" "}ليس دليلًا على صحة الحركة العربية أو المد.
+                          </p>
+                        ) : (
+                          <p>هذه كتابة قد تمثّل اسم الحرف أو المد. لا تثبت صحة الحركة القصيرة؛ استمع إلى التسجيل لتقييم الطفل.</p>
+                        )}
                       </div>
                     )}
                   </article>
