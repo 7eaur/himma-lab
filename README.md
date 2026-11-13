@@ -11,8 +11,6 @@
 [![Azure Speech](https://img.shields.io/badge/Azure_Speech-0078D4?style=for-the-badge)](https://azure.microsoft.com/products/ai-services/ai-speech)
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 
-**مشروع تجريبي غير منشور.**
-
 </div>
 
 ---
