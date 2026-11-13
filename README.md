@@ -1,45 +1,116 @@
-# Himma Calibration Lab
+<div align="center">
 
-مختبر مستقل لجمع بيانات النطق العربية ومعايرة محرك التحليل الصوتي لمنصة هِمّة.
+<img src="public/himma-logo.svg" width="200" alt="هِمّة — مختبر الصوت" />
 
-## الهدف
+# مختبر هِمّة للصوت | Himma Speech Lab
 
-- جمع تسجيلات لأهداف عربية معروفة مسبقًا.
-- حفظ نتيجة Azure Speech كدليل تقني فقط.
-- إضافة Ground Truth بشري مفصل للصحيح والخطأ.
-- فصل بيانات المختبر تمامًا عن قاعدة منصة هِمّة الإنتاجية.
-- تجهيز Dataset قابلة لاحقًا للمعايرة وقياس confusion matrix وfalse accept / false reject.
+مختبر لجمع تسجيلات النطق العربي ومراجعتها، وتجهيز بيانات تدريب ومعايرة نموذج التعرّف على الكلام وتقييم النطق في منصة هِمّة.
 
-## المكدس
+</div>
 
-- Next.js + TypeScript
-- Supabase PostgreSQL + Storage
-- Azure Speech عبر API server-side فقط
-- Vercel للنشر المقترح
+## فكرة المشروع
 
-## الخصوصية
+يوفر المختبر بيئة مستقلة لاختبار قراءة الحروف والكلمات والجمل والنصوص. يجمع التسجيل الصوتي، ونتيجة Azure Speech، وملاحظات الإنسان؛ بهدف اكتشاف أخطاء التعرّف وتحسين قرارات تقييم النطق اعتمادًا على بيانات حقيقية.
 
-لا تُخزن أسماء طلاب أو بيانات تعريفية مباشرة. المشاركون يستخدمون رموزًا مجهولة، ولا يوضع أي مفتاح Azure أو Supabase service role داخل Git.
+المتاح حاليًا هو **جمع البيانات والتحليل والمراجعة والمعايرة**. لا يحتوي المستودع مسارًا لتدريب نموذج صوتي مخصص أو Fine-tuning تلقائي؛ التسجيلات المراجعة أساس لتدريب نموذج أو ضبط سياسة التقييم لاحقًا. نتائج المختبر لا تغيّر تقدم الطالب أو درجاته في منصة هِمّة.
 
-## الحالة
+## كيف يعمل المختبر؟
 
-النسخة الأولى قيد البناء: Participant flow + recording + annotation + dashboard + calibration schema.
+1. ينشئ المشرف كود مشاركة دون الحاجة إلى اسم الطالب.
+2. يختار المشارك هدف القراءة ويسجل صوته، ثم يستمع إليه ويرسله للتحليل.
+3. يحفظ الخادم التسجيل في التخزين الخاص، ويرسل الصوت إلى Azure لتحويله إلى نص، ولتقييم النطق عند الحاجة.
+4. يعرض المختبر النص المتعرّف عليه وأدلة جودة التسجيل والمقارنة بالمرجع.
+5. يسجل المراجع حكمه، وتبقى الأدلة الأصلية محفوظة للمقارنة والمعايرة.
 
+في تجربة الصوت توجد **ثلاث مراجعات مستقلة**: صحة نطق الطفل، ودقة تفريغ Azure، وملاءمة قرار النموذج. حفظ أحدها لا يمحو المراجعتين الأخريين.
 
-## Simplified Speech Experiment
+## المسارات والمحتوى
 
-The branch `experiment/simplified-speech-lab-20260921` adds a direct experiment surface at `/speech-test`.
+| المسار | وظيفته |
+|---|---|
+| `/` | دخول المشارك بالكود |
+| `/lab` | مسار جمع التسجيلات الموسع: 90 هدفًا من الحروف والكلمات والقراءة والطلاقة |
+| `/speech-test` | تجربة نموذج الصوت على محتوى هِمّة V2 المثبت: 62 حالة |
+| `/admin/login` و`/admin` | دخول المشرف، إدارة المشاركين ومراجعة العينات |
+| `/admin/analytics` | تغطية العينات والتحليلات |
+| `/api/admin/export?format=csv` أو `json` | تصدير عينات مسار الجمع ومراجعاتها للمشرف |
 
-It intentionally uses three modes only:
+تجربة V2 تتضمن **10 حروف، و22 كلمة، و20 حالة جمل، و10 نصوص**. مصدرها `data/himma-v2-voice-cases.json`، وهو مثبت على التزام محتوى هِمّة `4e6bf86528d17b8a1c81339cbe55634032cec5e3`. تفاصيل المصدر وإصدار المحتوى محفوظة داخل JSON. تبقى حالات `/lab` وسجلاتها منفصلة عن حالات تجربة V2 وإصداراتها.
 
-- `targeted_pronunciation`: short-vowel, shadda, sukun, and madd targets. Azure lexical ASR is shown as evidence and Azure Pronunciation Assessment is requested from the same Speech resource.
-- `lexical`: sentences/passages are normalized without Arabic diacritics and aligned as C/D/I/S.
-- `fluency`: lexical evidence plus captured duration; final fluency thresholds are intentionally not invented yet.
+## منطق التحليل والمعايرة
 
-Every experiment stores the machine evidence in `speech_experiment_runs` and lets the evaluator record whether the spoken attempt was actually correct, incorrect, or unclear. Experiment decisions have `academic_effect = none`.
+- **النطق المستهدف:** يجمع أدلة التعرّف وتقييم النطق للحروف والأهداف المشكلة؛ درجة المزود وحدها لا تثبت صحة الحركة أو الشدة أو السكون.
+- **القراءة اللفظية:** يطبّع النص العربي ويقارن الكلمات بالمرجع، مع بيان الصحيح والحذف والإضافة والاستبدال، وWER والدقة اللفظية.
+- **الطلاقة:** يجمع أدلة القراءة والزمن؛ اعتماد حدود نهائية يحتاج تسجيلات ممثلة ومراجعة بشرية.
+- التطابق اللفظي قد يعطي `correct` تجريبيًا؛ عدم التطابق أو نقص الأدلة يعيد `retry_required` للمراجعة، ولا يعني رسوب الطالب.
+- بدائل تفريغ الحروف موجودة في ملف منفصل. تشمل بدائل مرصودة وفرضيات تحتاج اختبارًا؛ مطابقتها لا تعتمد صحة النطق أو الحركة، ولا تغيّر بنك الأسئلة.
+- في تجربة `/speech-test` تُمنع ملفات WAV غير الصالحة بنيويًا، بينما تُحفظ مؤشرات الصوت القصير أو الضعيف كأدلة تشخيصية دون رفضه بسبب الطاقة وحدها.
+- الأثر الأكاديمي لجميع التجارب `none`. اعتماد النموذج يحتاج عينات صحيحة وخاطئة، ومراجعات بشرية، وفصل بيانات المعايرة عن التحقق، وقياس القبول والرفض الخاطئ ثم تثبيت نسخة السياسة.
 
-Provider readiness is exposed by `/api/speech-test/status`. The pronunciation region is inferred from a standard regional `HIMMA_AZURE_SPEECH_ENDPOINT`, or can be supplied explicitly through `HIMMA_AZURE_SPEECH_REGION` / `HIMMA_AZURE_PRONUNCIATION_ENDPOINT`.
+## البيانات والخصوصية
 
-Do not promote experiment thresholds into the student academic path until representative recordings have been reviewed and the decision policy is explicitly approved.
+Supabase PostgreSQL يحفظ المشاركين والعينات والمراجعات ونتائج التجارب، وStorage يحفظ الصوت في bucket خاص. يستخدم مسار الجمع `calibration_samples` و`calibration_reviews`، وتجربة الصوت `speech_experiment_runs` مع إصدار المحتوى وأدلة المزود والمراجعات الثلاث.
 
-<!-- preview deployment retry marker -->
+تُستخدم أكواد المشاركة بدل الأسماء، ولا توجد أكواد دخول افتراضية معتمدة. صلاحية الخدمة ومفاتيح Azure ورمز المشرف تبقى على الخادم خارج Git. تسجيلات المختبر وقاعدته مستقلتان عن منصة هِمّة الإنتاجية. تصدير CSV/JSON الحالي يخص عينات مسار الجمع؛ لا يشمل جدول تجارب الصوت تلقائيًا.
+
+## التقنية والبنية
+
+Next.js App Router · React · TypeScript · Supabase PostgreSQL/Storage · Azure Speech.
+
+| المسار | المحتوى |
+|---|---|
+| `app/` | واجهات المشارك والمشرف وتجربة الصوت ومسارات API |
+| `components/` | أدوات إنشاء الأكواد والمراجعة والوسم |
+| `lib/` | التسجيل والتحليل وجودة الصوت والمزود وسياسة القرار |
+| `data/` | حالات V2 وبدائل التعرّف التجريبية |
+| `supabase/migrations/` | مخطط البيانات وتحديثاته المرتبة |
+| `scripts/` | التحقق من المحتوى وجودة الصوت والمراجعات والبدائل |
+| `public/` | شعار هِمّة المعتمد |
+
+هوية المختبر تتبع هِمّة: الأزرق `#347FD9` والأخضر `#51B985` والأصفر `#FFC857`، مع خطي Tajawal وIBM Plex Sans Arabic. مصدر الشعار هو حزمة `Himma_Web_Logo_Kit_v1.0` المعتمدة.
+
+## التشغيل
+
+المتطلبات: Node.js 22.6 أو أحدث ضمن إصدار مدعوم من Next.js، وnpm، ومشروع Supabase مستقل، ومورد Azure Speech. بيئة CI تستخدم Node.js 22.
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+قبل تشغيل التسجيل: جهّز قاعدة المختبر بتطبيق ملفات `supabase/migrations/001` إلى `009` بالترتيب على قاعدة مستقلة، واضبط القيم في `.env.local`. لا تُنفذ هذه الخطوة على قاعدة منصة هِمّة.
+
+| الإعداد | الغرض |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | رابط مشروع Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | صلاحية الخادم لقاعدة المختبر والتخزين |
+| `SUPABASE_RECORDINGS_BUCKET` | اسم bucket الخاص؛ الافتراضي `recordings` |
+| `HIMMA_AZURE_SPEECH_ENDPOINT` و`HIMMA_AZURE_SPEECH_API_KEY` | اتصال Azure Speech |
+| `HIMMA_AZURE_SPEECH_REGION` أو `HIMMA_AZURE_PRONUNCIATION_ENDPOINT` | تحديد مورد تقييم النطق عند تعذر استنتاج المنطقة |
+| `HIMMA_AZURE_PRONUNCIATION_LOCALE` | لغة تقييم النطق؛ الافتراضي `ar-SA` |
+| `HIMMA_AZURE_SPEECH_REFERENCE_HINT` | تلميح النص المرجعي؛ الافتراضي `false` |
+| `HIMMA_AZURE_SPEECH_TIMEOUT_SECONDS` | مهلة المزود؛ الافتراضي 45 ثانية |
+| `ADMIN_DASHBOARD_TOKEN` | رمز دخول لوحة المشرف |
+
+افتح `http://localhost:3000`. الاستضافة المستهدفة للمختبر Next.js على Vercel مع Supabase وAzure، دون وسيط Railway. تشغيل التطبيق لا يعني اعتماد نموذج النطق أكاديميًا.
+
+## التحقق والبناء
+
+```bash
+npm run validate:voice-cases
+npm run test:audio-preflight
+npm run test:feedback-review
+npm run test:letter-aliases
+npm run test:voice-case-order
+npm run typecheck
+npm run lint
+npm run build
+npm run start
+```
+
+## المطور
+
+**م. إلياس الشعيبي — Elyas Al Shaebi**
+
+[GitHub](https://github.com/7eaur) · [الجوال: +967 775377979](tel:+967775377979)
